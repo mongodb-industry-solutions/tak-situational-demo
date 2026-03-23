@@ -58,7 +58,7 @@ Key fields the dashboard cares about:
 |---|---|---|
 | `track` | PLI — transient device positions | ✅ Used |
 | `mapitem` | Persistent map graphics | ✅ Used |
-| `chat` | Chat messages from ATAK | ✅ Used |
+| `chat` | Chat messages from ATAK — **actual fields:** `msg` (text), `e` (callsign), `b` (timestamp ms). Schema doc says `message`/`authorCallsign`/`time` but real plugin uses these instead. | ✅ Used |
 | `file` | Attached files | ⬜ Not used in MVP |
 | `alert` | Alerts | ⬜ Not used in MVP |
 

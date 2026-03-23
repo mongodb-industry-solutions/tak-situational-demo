@@ -12,5 +12,5 @@ async def get_chat():
     """Return chat messages ordered by time ascending."""
     db = MongoDBConnector()
     collection = db.get_collection("chat")
-    docs = list(collection.find({}, sort=[("time", 1)]))
+    docs = list(collection.find({}, sort=[("b", 1)]))
     return [_serialise(d) for d in docs]

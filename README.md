@@ -52,7 +52,7 @@ Ditto P2P mesh and the Ditto MongoDB Connector into MongoDB Atlas.
 ### Backend
 
 ```bash
-cp backend/EXAMPLE.env backend/.env
+cp backend/.env.example backend/.env
 # Edit backend/.env and set MONGODB_URI and DATABASE_NAME
 make uv_init && make uv_sync
 cd backend && uv run uvicorn main:app --host 0.0.0.0 --port 8000

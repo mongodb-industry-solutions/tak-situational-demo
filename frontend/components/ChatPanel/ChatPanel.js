@@ -4,16 +4,16 @@ import { Body, H3 } from "@leafygreen-ui/typography";
 import { palette } from "@leafygreen-ui/palette";
 import { useChatPanel } from "./useChatPanel";
 
-function formatTime(timeStr) {
-  if (!timeStr) return "";
+function formatTime(ms) {
+  if (!ms) return "";
   try {
-    return new Date(timeStr).toLocaleTimeString([], {
+    return new Date(ms).toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
     });
   } catch {
-    return timeStr;
+    return "";
   }
 }
 
@@ -76,7 +76,7 @@ export default function ChatPanel() {
                   flexShrink: 0,
                 }}
               >
-                {msg.authorCallsign || msg.e || "UNKNOWN"}
+                {msg.e || msg.authorCallsign || "UNKNOWN"}
               </span>
               <span
                 style={{
@@ -85,7 +85,7 @@ export default function ChatPanel() {
                   fontFamily: "monospace",
                 }}
               >
-                {formatTime(msg.time)}
+                {formatTime(msg.b)}
               </span>
             </div>
             <Body
@@ -96,7 +96,7 @@ export default function ChatPanel() {
                 lineHeight: "1.4",
               }}
             >
-              {msg.message}
+              {msg.msg || msg.message}
             </Body>
           </div>
         ))}

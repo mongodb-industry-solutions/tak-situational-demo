@@ -1,10 +1,9 @@
 import "./globals.css";
 import { Providers } from "./providers";
 
-// TODO: Update metadata with actual demo details
 export const metadata = {
-  title: "Demo Template",
-  description: "Industry Solutions Demo Template for NextJS",
+  title: "TAK Situational Demo — Command Vehicle",
+  description: "MongoDB + Ditto tactical edge demo — command vehicle situational awareness dashboard",
 };
 
 export default function RootLayout({ children }) {

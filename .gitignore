@@ -238,3 +238,14 @@ frontend/next-env.d.ts
 
 # Misc
 *.pem
+
+# MCP config (personal/local tooling)
+.mcp.json
+.playwright-mcp/
+
+# Screenshots / local artifacts
+screenshot-*.png
+screenshot-*.jpg
+
+# Docs
+docs/

@@ -1,81 +1,33 @@
 env:
   NODE_ENV: staging
-  # AWS region for IRSA (no credentials needed)
-  AWS_REGION: us-east-1
-  # Backend API URL for frontend to connect to backend health check - get <service-name> using kubectl get services
-  BACKEND_URL: http://<demo-name>-backend-web-app:80   # or http://localhost:8000 if multicontainer pod is setup and backend is running on 8000
-  COLLECTION_NAME: test-collection
+  # Backend API URL — use service name for separate-pods deployment
+  BACKEND_URL: http://defence-tak-ditto-sync-backend-web-app:80
+  # or http://localhost:8000 if using multi-container pod with backend on port 8000
 
-## Single Pod Containers
+## Secrets — set via: helm ksec set <secret-group> KEY="value"
 envSecrets:
-  # MongoDB Configuration
-  MONGODB_URI: <secret-group>
-  DATABASE_NAME: <secret-group>
-  VOYAGE_API_KEY: <secret-group>
-  # Bedrock Inference Profiles (see cloud-cost-tracking.md)
-  CHATCOMPLETIONS_MODEL_ID: <secret-group>
-  EMBEDDINGS_MODEL_ID: <secret-group>
+  MONGODB_URI: defence-tak-ditto-sync-secrets
+  DATABASE_NAME: defence-tak-ditto-sync-secrets
 
-## should be used in case of multiple sidecar containers
+## Sidecar (multi-container pod) — uncomment if using multi-container pod deployment
 # sidecarContainers:
 #   - name: backend
-#     image: 275662791714.dkr.ecr.us-east-1.amazonaws.com/kanopy-session-backend:latest
+#     image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/defence-tak-ditto-sync-backend:latest
 #     env:
-#       # MongoDB connection (from Kubernetes secret)
 #       - name: MONGODB_URI
 #         valueFrom:
 #           secretKeyRef:
-#             name: session-temp-kanopy
+#             name: defence-tak-ditto-sync-secrets
 #             key: MONGODB_URI
-
 #       - name: DATABASE_NAME
 #         valueFrom:
 #           secretKeyRef:
-#             name: session-temp-kanopy
+#             name: defence-tak-ditto-sync-secrets
 #             key: DATABASE_NAME
 
-#       # Voyage AI API Key (embeddings)
-#       - name: VOYAGE_API_KEY
-#         valueFrom:
-#           secretKeyRef:
-#             name: session-temp-kanopy
-#             key: VOYAGE_API_KEY
-    
-## ----------------------------- Cloud Specific Configurations -----------------------------
-
-# Add IRSA configuration here, role here gives access to bedrock, s3, aws secrets manager
+## AWS IRSA
 serviceAccount:
   enabled: true
   irsa:
     accountId: "275662791714"
     roleName: "kanopy-staging-cicd-irsa"
-
-## For GCP this, example setup here is for manufacturing
-
-# serviceAccount:
-#  enabled: true
-#  name: <service-account> # commit and helm should create Service account 
-# ## kubectl get pods -n ${KSA_NAMESPACE} -o jsonpath='{.items[0].spec.serviceAccountName}' | grep <demo-pod-name>
-
-
-# # Mount GCP credential config and service account token
-# extraVolumes:
-#  - name: gcp-creds
-#    configMap:
-#      name: <config-map-name>
-#  - name: gcp-token
-#    projected:
-#      sources:
-#      - serviceAccountToken:
-#          path: token
-#          expirationSeconds: 3600
-#          audience: "//iam.googleapis.com/projects/<USER_PROJECT_NUMBER>/locations/global/workloadIdentityPools/<WIF_POOL_ID>/providers/<WIF_PROVIDER_ID>"
-
-
-# extraVolumeMounts:
-#  - name: gcp-creds
-#    mountPath: /etc/gcp
-#    readOnly: true
-#  - name: gcp-token
-#    mountPath: /var/run/service-account
-#    readOnly: true

@@ -1,25 +1,27 @@
 services:
-  demoname-backend:
+  tak-situational-backend:
     build:
       context: .
       no_cache: true
       dockerfile: Dockerfile.backend
-    image: imagename-backend:latest
-    volumes:
-      - ~/.aws/credentials:/root/.aws/credentials:ro
-      - ~/.aws/config:/root/.aws/config:ro
-      - ~/.aws/sso/cache:/root/.aws/sso/cache:rw  # Only make cache writable
+    image: tak-situational-backend:latest
+    env_file:
+      - backend/.env
     ports:
       - "8000:8000"
     restart: always
-    container_name: demoname-backend
-  demoname-frontend:
+    container_name: tak-situational-backend
+  tak-situational-frontend:
     build:
       context: .
       no_cache: true
       dockerfile: Dockerfile.frontend
-    image: imagename-frontend:latest
+    image: tak-situational-frontend:latest
     ports:
       - "3000:3000"
+    environment:
+      - BACKEND_URL=http://tak-situational-backend:8000
+    depends_on:
+      - tak-situational-backend
     restart: always
-    container_name: demoname-frontend
+    container_name: tak-situational-frontend

@@ -4,11 +4,11 @@ export const TALK_TRACK = [
     content: [
       {
         heading: "The Situation",
-        body: "A four-person Army reconnaissance squad is operating in rugged, forested terrain under active enemy jamming. There is zero access to cell towers or satellite uplinks. The squad is completely disconnected from Command.",
+        body: "Field units operate in environments where connectivity is unreliable or actively denied — terrain, interference, or deliberate jamming can cut off communication at any moment. Squads still need to coordinate, share positions, and report back to Command regardless of network conditions.",
       },
       {
         heading: "The Problem",
-        body: "Command needs a live operational picture — where are the units, are they active or out of contact, and what are they reporting? Traditional systems fail the moment connectivity drops. If a soldier goes silent, Command loses all visibility into their last known position.",
+        body: "Command needs a live operational picture — where are the units, are they active or out of contact, and what are they reporting? Traditional systems fail the moment connectivity drops. When a unit goes silent, Command loses all visibility into their last known position and has no way to distinguish a technical failure from a tactical emergency.",
       },
       {
         heading: "What This Dashboard Shows",

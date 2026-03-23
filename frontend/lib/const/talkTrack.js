@@ -1,36 +1,60 @@
 export const TALK_TRACK = [
   {
-    heading: "Instructions & Talk Track",
+    heading: "Scenario",
     content: [
       {
-        heading: "Solution Overview",
-        body: "This dashboard is the Command Vehicle view for a MongoDB + Ditto tactical edge demo. Real Android devices running ATAK CIV with the Ditto Edge Sync plugin form a peer-to-peer mesh in the field — no cell towers, no satellite required. When connectivity is restored, the Ditto MongoDB Connector syncs all field data (positions, chat, map items) to MongoDB Atlas, and this dashboard instantly reflects the full operational picture.",
+        heading: "The Situation",
+        body: "A four-person Army reconnaissance squad is operating in rugged, forested terrain under active enemy jamming. There is zero access to cell towers or satellite uplinks. The squad is completely disconnected from Command.",
       },
       {
-        heading: "How to Demo",
+        heading: "The Problem",
+        body: "Command needs a live operational picture — where are the units, are they active or out of contact, and what are they reporting? Traditional systems fail the moment connectivity drops. If a soldier goes silent, Command loses all visibility into their last known position.",
+      },
+      {
+        heading: "What This Dashboard Shows",
         body: [
-          "Open this dashboard on the command laptop before the demo begins.",
-          "Point to the map: each marker is a live field device (soldier/unit). Green = active, grey = stale (position is last known).",
-          "Open the ATAK app on the Android device. Move the device — watch the marker update in real time on the map.",
-          "Send a chat message from ATAK. It appears in the Comms Feed panel on the right.",
-          "Disconnect the Android device from Wi-Fi (simulate jamming / denied comms). The marker turns grey with a ⚠ STALE badge — Command knows the unit is out of contact but retains last known position.",
-          "Reconnect the device. The marker immediately goes green again and the position snaps to current — demonstrating instant sync on reconnect via Ditto.",
+          "Map markers — each pin is a field device (soldier/unit). Green = actively syncing, grey = stale (last known position).",
+          "Node Status panel — at a glance, which units are active and which have gone out of contact, with time since last update.",
+          "Comms Feed — chat messages sent from ATAK devices in the field, appearing in real time as connectivity is restored.",
+          "Staleness — when a unit loses connectivity, their marker turns grey with a STALE badge. Command retains the last known position and knows exactly when contact was lost.",
+        ],
+      },
+      {
+        heading: "The Demo Flow",
+        body: [
+          "Point to the map: each marker is a live field device. Watch the position update in real time as the Android device moves.",
+          "Send a chat message from the ATAK app — it appears in the Comms Feed within seconds.",
+          "Disconnect the Android device from Wi-Fi to simulate jamming. The marker goes grey (STALE) — Command still sees last known position.",
+          "Reconnect the device. The marker instantly snaps back to green and the position updates — demonstrating Ditto's instant sync on reconnect.",
         ],
       },
     ],
   },
   {
-    heading: "Behind the Scenes",
+    heading: "How It Works",
     content: [
       {
-        heading: "Architecture",
-        body: "Android ATAK devices run the Ditto Edge Sync plugin. Ditto forms a secure peer-to-peer mesh (BLE / WiFi) between devices — fully offline. A Ditto Big Peer on Ditto Cloud acts as the coordination hub. The Ditto MongoDB Connector replicates all Ditto collections (track, chat, mapitem) to MongoDB Atlas in real time. This dashboard reads from Atlas via a FastAPI backend.",
+        heading: "End-to-End Architecture",
+        body: "Android devices run ATAK CIV with the Ditto Edge Sync plugin installed. Ditto forms a secure peer-to-peer mesh between devices over BLE and Wi-Fi Direct — no infrastructure required. A Ditto Big Peer running on Ditto Cloud acts as the cloud coordination hub. The Ditto MongoDB Connector replicates all field collections (positions, chat, map items) to MongoDB Atlas in real time the moment any device has connectivity. This dashboard's FastAPI backend reads from Atlas and the Next.js frontend polls every 2 seconds.",
       },
       {
-        image: {
-          src: "/img/high-level-architecture.svg",
-          alt: "Architecture: ATAK → Ditto Mesh → MongoDB Connector → Atlas → Dashboard",
-        },
+        heading: "Data Flow",
+        body: [
+          "ATAK device → Ditto Edge Sync plugin (on-device)",
+          "Ditto P2P mesh → other field devices (offline, no infrastructure)",
+          "Ditto Big Peer on Ditto Cloud → synchronisation hub",
+          "Ditto MongoDB Connector → MongoDB Atlas (cloud)",
+          "FastAPI backend → reads Atlas collections (read-only)",
+          "This dashboard → polls backend every 2 seconds",
+        ],
+      },
+      {
+        heading: "Collections in Atlas",
+        body: [
+          "track — PLI (Position Location Information): transient device positions shown as map markers",
+          "chat — messages sent from ATAK devices, shown in the Comms Feed",
+          "mapitem — persistent map graphics drawn in ATAK (visible on the map)",
+        ],
       },
     ],
   },
@@ -39,15 +63,15 @@ export const TALK_TRACK = [
     content: [
       {
         heading: "Flexible Document Model",
-        body: "ATAK produces Cursor-on-Target (CoT) XML events for positions, map items, and chat — all structurally different. MongoDB stores them as flexible BSON documents in the same database without rigid schemas. If the team later adds biometric sensors (heart rate) or environmental data (temperature, wind speed), the new fields simply appear in existing documents. No migrations, no downtime.",
+        body: "ATAK produces Cursor-on-Target (CoT) events for positions, chat messages, and map graphics — all structurally different. MongoDB stores them as flexible BSON documents with no rigid schema. When the team later adds biometric sensors (heart rate) or environmental readings (temperature, wind speed), the new fields simply appear in existing documents. No migrations, no downtime, no schema changes.",
       },
       {
         heading: "Queryable Encryption",
-        body: "Every field device stores its MongoDB data encrypted on-device using MongoDB Queryable Encryption. The encryption keys live only at Command. If a soldier's device is captured, the enemy cannot read location history, voice-to-text logs, or movement patterns — the data is cryptographically useless without Command's keys.",
+        body: "Every field device stores its data encrypted on-device using MongoDB Queryable Encryption. The encryption keys live only at Command. If a soldier's device is captured, the enemy cannot read location history, chat logs, or movement patterns — the data is cryptographically useless without Command's keys. This is demonstrated live via MongoDB Compass or Atlas UI during the demo.",
       },
       {
-        heading: "Real-time & Edge-first",
-        body: "MongoDB Change Streams provide instant push updates. The Ditto connector uses them to propagate field data to Atlas the moment a device comes online. Combined with Ditto's offline-first P2P mesh, the result is an architecture that degrades gracefully in contested environments and recovers instantly when connectivity is restored.",
+        heading: "Real-Time Sync at the Edge",
+        body: "MongoDB Change Streams provide instant push updates. The Ditto connector uses them to propagate field data to Atlas the moment a device comes online. Combined with Ditto's offline-first P2P mesh, the architecture degrades gracefully in contested environments and recovers instantly when connectivity is restored — exactly the behaviour shown in this dashboard.",
       },
     ],
   },

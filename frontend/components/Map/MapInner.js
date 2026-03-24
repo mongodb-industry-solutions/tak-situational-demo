@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Tooltip } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -33,12 +34,24 @@ function makeIcon(stale) {
 }
 
 export default function MapInner({ tracks, mapitems, isStale }) {
+  const mapRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
+
   // Find a centre from the first track, fall back to a reasonable default
   const firstFresh = tracks.find((t) => t.j && t.l);
   const center = firstFresh ? [firstFresh.j, firstFresh.l] : [27.02, -81.26];
 
   return (
     <MapContainer
+      ref={mapRef}
       center={center}
       zoom={14}
       style={{ width: "100%", height: "100%" }}

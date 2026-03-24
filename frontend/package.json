@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev --turbopack --port 3000",
-    "build": "next build --turbopack",
+    "dev": "next dev --port 3000",
+    "build": "next build",
     "start": "next start --port 8080",
     "lint": "eslint"
   },
@@ -20,9 +20,9 @@
     "dotenv": "^17.2.2",
     "leaflet": "^1.9.4",
     "next": "^15.5.7",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "react-leaflet": "^5.0.0"
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-leaflet": "^4.2.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

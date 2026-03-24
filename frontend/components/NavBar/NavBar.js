@@ -1,6 +1,7 @@
 "use client";
 
 import InfoWizard from "@/components/infoWizard/InfoWizard";
+import JoinMeshModal from "@/components/JoinMeshModal/JoinMeshModal";
 import { palette } from "@leafygreen-ui/palette";
 
 export default function NavBar() {
@@ -45,7 +46,10 @@ export default function NavBar() {
         </span>
       </div>
 
-      <InfoWizard tooltipText="About this demo" iconGlyph="Wizard" />
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <JoinMeshModal />
+        <InfoWizard tooltipText="About this demo" iconGlyph="Wizard" />
+      </div>
     </nav>
   );
 }

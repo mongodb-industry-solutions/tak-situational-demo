@@ -10,9 +10,10 @@ export default function Home() {
     <main
       style={{
         backgroundColor: "#0d1117",
-        minHeight: "100vh",
+        height: "100vh",
         display: "flex",
         flexDirection: "column",
+        overflow: "hidden",
       }}
     >
       <NavBar />
@@ -21,17 +22,16 @@ export default function Home() {
       <div
         style={{
           flex: 1,
+          minHeight: 0,
           display: "grid",
           gridTemplateColumns: "1fr 320px",
           gridTemplateRows: "1fr 260px",
           gap: "12px",
           padding: "12px",
-          height: "calc(100vh - 56px)",
-          boxSizing: "border-box",
         }}
       >
         {/* Map — spans both rows on the left */}
-        <div style={{ gridRow: "1 / 3", borderRadius: "6px", overflow: "hidden" }}>
+        <div style={{ gridRow: "1 / 3", borderRadius: "6px", overflow: "hidden", minHeight: 0, position: "relative", zIndex: 0 }}>
           <Map />
         </div>
 

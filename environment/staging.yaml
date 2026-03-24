@@ -1,8 +1,7 @@
 env:
   NODE_ENV: staging
-  # Backend API URL — use service name for separate-pods deployment
-  BACKEND_URL: http://defence-tak-ditto-sync-backend-web-app:80
-  # or http://localhost:8000 if using multi-container pod with backend on port 8000
+  # Backend API URL — localhost for multi-container pod (frontend + backend sidecar in same pod)
+  BACKEND_URL: http://localhost:8080
 
 ## Secrets — set via: helm ksec set <secret-group> KEY="value"
 envSecrets:

@@ -1,25 +1,25 @@
 env:
   NODE_ENV: prod
-  BACKEND_URL: http://defence-tak-ditto-sync-backend-web-app:80
+  BACKEND_URL: http://localhost:8000
 
 envSecrets:
-  MONGODB_URI: defence-tak-ditto-sync-secrets
-  DATABASE_NAME: defence-tak-ditto-sync-secrets
+  MONGODB_URI: tak-situational-demo
+  DATABASE_NAME: tak-situational-demo
 
-# sidecarContainers:
-#   - name: backend
-#     image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/defence-tak-ditto-sync-backend:latest
-#     env:
-#       - name: MONGODB_URI
-#         valueFrom:
-#           secretKeyRef:
-#             name: defence-tak-ditto-sync-secrets
-#             key: MONGODB_URI
-#       - name: DATABASE_NAME
-#         valueFrom:
-#           secretKeyRef:
-#             name: defence-tak-ditto-sync-secrets
-#             key: DATABASE_NAME
+sidecarContainers:
+  - name: backend
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/defence-tak-ditto-sync-backend:latest
+    env:
+      - name: MONGODB_URI
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: MONGODB_URI
+      - name: DATABASE_NAME
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: DATABASE_NAME
 
 serviceAccount:
   enabled: true

@@ -3,8 +3,6 @@
 import { useCallback } from "react";
 import { usePolling } from "@/lib/hooks/usePolling";
 
-const STALE_THRESHOLD_MS = 0; // use doc.o field directly
-
 export function isStale(doc) {
   if (!doc.o) return false;
   return Date.now() > doc.o;
@@ -29,6 +27,6 @@ export function useMap() {
   return {
     tracks: tracks || [],
     mapitems: mapitems || [],
-    loading: tracksLoading && mapitemsLoading,
+    loading: tracksLoading || mapitemsLoading,
   };
 }

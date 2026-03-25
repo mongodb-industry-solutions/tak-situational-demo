@@ -61,7 +61,7 @@ steps:
       values:
         - "sidecarContainers[0].name=backend"
         - "sidecarContainers[0].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/defence-tak-ditto-sync-backend:git-${DRONE_COMMIT_SHA:0:7}"
-        - "sidecarContainers[0].containerPort=8080"
+        - "sidecarContainers[0].containerPort=8000"
         - "image.tag=git-${DRONE_COMMIT_SHA:0:7}"
         - "image.repository=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/defence-tak-ditto-sync-frontend"
         - "ingress.enabled=true"

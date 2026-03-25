@@ -1,28 +1,27 @@
 env:
   NODE_ENV: staging
   # Backend API URL — localhost for multi-container pod (frontend + backend sidecar in same pod)
-  BACKEND_URL: http://localhost:8080
+  BACKEND_URL: http://localhost:8000
 
 ## Secrets — set via: helm ksec set <secret-group> KEY="value"
 envSecrets:
-  MONGODB_URI: defence-tak-ditto-sync-secrets
-  DATABASE_NAME: defence-tak-ditto-sync-secrets
+  MONGODB_URI: tak-situational-demo
+  DATABASE_NAME: tak-situational-demo
 
-## Sidecar (multi-container pod) — uncomment if using multi-container pod deployment
-# sidecarContainers:
-#   - name: backend
-#     image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/defence-tak-ditto-sync-backend:latest
-#     env:
-#       - name: MONGODB_URI
-#         valueFrom:
-#           secretKeyRef:
-#             name: defence-tak-ditto-sync-secrets
-#             key: MONGODB_URI
-#       - name: DATABASE_NAME
-#         valueFrom:
-#           secretKeyRef:
-#             name: defence-tak-ditto-sync-secrets
-#             key: DATABASE_NAME
+sidecarContainers:
+  - name: backend
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/defence-tak-ditto-sync-backend:latest
+    env:
+      - name: MONGODB_URI
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: MONGODB_URI
+      - name: DATABASE_NAME
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: DATABASE_NAME
 
 ## AWS IRSA
 serviceAccount:

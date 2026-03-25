@@ -7,7 +7,8 @@
     "dev": "next dev --port 3000",
     "build": "next build",
     "start": "next start --port 8080",
-    "lint": "eslint"
+    "lint": "eslint",
+    "prepare": "mkdir -p public/leaflet && cp -r node_modules/leaflet/dist/images/. public/leaflet"
   },
   "dependencies": {
     "@leafygreen-ui/button": "^23.1.6",
@@ -20,8 +21,8 @@
     "dotenv": "^17.2.2",
     "leaflet": "^1.9.4",
     "next": "^15.5.7",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
     "react-leaflet": "^4.2.1"
   },
   "devDependencies": {

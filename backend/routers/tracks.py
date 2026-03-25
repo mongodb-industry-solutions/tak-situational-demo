@@ -1,4 +1,3 @@
-import os
 from fastapi import APIRouter
 from db.mdb import MongoDBConnector
 

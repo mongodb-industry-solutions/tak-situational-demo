@@ -3,14 +3,12 @@
 import { useEffect, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Tooltip } from "react-leaflet";
 import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-
 // Default Leaflet icon paths broken in Next.js — patch manually
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconRetinaUrl: "/leaflet/marker-icon-2x.png",
+  iconUrl: "/leaflet/marker-icon.png",
+  shadowUrl: "/leaflet/marker-shadow.png",
 });
 
 function makeIcon(stale) {
@@ -46,7 +44,7 @@ export default function MapInner({ tracks, mapitems, isStale }) {
   }, []);
 
   // Find a centre from the first track, fall back to a reasonable default
-  const firstFresh = tracks.find((t) => t.j && t.l);
+  const firstFresh = tracks.find((t) => t.j != null && t.l != null);
   const center = firstFresh ? [firstFresh.j, firstFresh.l] : [27.02, -81.26];
 
   return (
@@ -64,7 +62,7 @@ export default function MapInner({ tracks, mapitems, isStale }) {
       />
 
       {tracks.map((track) => {
-        if (!track.j || !track.l) return null;
+        if (track.j == null || track.l == null) return null;
         const stale = isStale(track);
         const callsign = track.c || track.e || track._id;
         const lastUpdate = track.b ? new Date(track.b).toLocaleTimeString() : "unknown";
@@ -99,7 +97,7 @@ export default function MapInner({ tracks, mapitems, isStale }) {
       })}
 
       {mapitems.map((item) => {
-        if (!item.j || !item.l) return null;
+        if (item.j == null || item.l == null) return null;
         const label = item.c || item._id;
         return (
           <Marker

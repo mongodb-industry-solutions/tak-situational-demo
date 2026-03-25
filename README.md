@@ -34,11 +34,11 @@ Ditto P2P mesh and the Ditto MongoDB Connector into MongoDB Atlas.
 
 ## Tech Stack
 
-- **FastAPI** (Python 3.13) — read-only backend API
-- **Next.js 15** (App Router) — dashboard frontend
+- **FastAPI** — read-only backend API
+- **Next.js** (App Router) — dashboard frontend
 - **MongoDB Atlas** — primary data store (populated by Ditto connector)
 - **LeafyGreen UI** + **Tailwind CSS 4** — UI components and styling
-- **Leaflet.js** (react-leaflet v5) — interactive tactical map
+- **Leaflet.js** — interactive tactical map
 
 ## Prerequisites
 
@@ -90,7 +90,7 @@ make clean   # teardown containers and images
 
 See [KANOPY_DEPLOYMENT_README.md](KANOPY_DEPLOYMENT_README.md) for full instructions.
 
-Deployment name: `defence-tak-ditto-sync`
+Deployment name: `tak-situational-demo`
 
 ## Common Errors
 

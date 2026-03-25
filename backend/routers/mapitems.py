@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from db.mdb import MongoDBConnector
 
 router = APIRouter()
+_db = MongoDBConnector()
 
 def _serialise(doc):
     doc["_id"] = str(doc["_id"])
@@ -10,6 +11,5 @@ def _serialise(doc):
 @router.get("/mapitems")
 async def get_mapitems():
     """Return all non-deleted persistent map items from Atlas."""
-    db = MongoDBConnector()
-    docs = db.find("mapitem", {"_r": False})
+    docs = _db.find("mapitem", {"_r": False})
     return [_serialise(d) for d in docs]

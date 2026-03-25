@@ -8,7 +8,7 @@ envSecrets:
 
 sidecarContainers:
   - name: backend
-    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/defence-tak-ditto-sync-backend:latest
+    image: 795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/tak-situational-demo-backend:latest
     env:
       - name: MONGODB_URI
         valueFrom:
@@ -26,3 +26,11 @@ serviceAccount:
   irsa:
     accountId: "275662791714"
     roleName: "kanopy-prod-cicd-irsa"
+
+## Kanopy security and ownership (requires web-app chart v4.30.0+)
+security:
+  dataClassification: "Internal"
+  dataDesignation: ["MI"]
+
+ownership:
+  driEmail: alberto.camarena@mongodb.com

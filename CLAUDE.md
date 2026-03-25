@@ -30,9 +30,9 @@ The backend is **READ-ONLY** from MongoDB Atlas. It does not write to Atlas.
 | Layer | Technology |
 |---|---|
 | Backend | Python 3.13, FastAPI, uvicorn, pymongo, python-dotenv |
-| Frontend | Next.js 15 (App Router), React 19, JavaScript (no TypeScript) |
+| Frontend | Next.js 15 (App Router), React 18.2, JavaScript (no TypeScript) |
 | UI | LeafyGreen UI (`@leafygreen-ui/*`), Tailwind CSS 4 |
-| Map | Leaflet.js via react-leaflet v5 (dynamic import, SSR disabled) |
+| Map | Leaflet.js via react-leaflet (dynamic import, SSR disabled) |
 | Package mgmt | uv (backend), npm (frontend) |
 | Deploy | Docker, Kanopy (Kubernetes, Drone CI/CD) |
 
@@ -93,7 +93,7 @@ Date.now() > doc.o   // doc.o is millis since epoch set by the Ditto ATAK plugin
 
 ## Deployment
 
-- Kanopy deployment name: `defence-tak-ditto-sync`
+- Kanopy deployment name: `tak-situational-demo`
 - Atlas IP allowlist: add Kanopy egress IP range before deploying
 - `BACKEND_URL` env var in `environment/staging.yaml` must point to the backend service
 

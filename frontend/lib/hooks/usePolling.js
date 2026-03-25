@@ -7,26 +7,33 @@ export function usePolling(fetchFn, intervalMs = 2000) {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const inFlight = useRef(false);
+  const mounted = useRef(true);
 
   const poll = useCallback(async () => {
     if (inFlight.current) return;
     inFlight.current = true;
     try {
       const result = await fetchFn();
-      setData(result);
-      setError(null);
+      if (mounted.current) {
+        setData(result);
+        setError(null);
+      }
     } catch (err) {
-      setError(err);
+      if (mounted.current) setError(err);
     } finally {
-      setLoading(false);
+      if (mounted.current) setLoading(false);
       inFlight.current = false;
     }
   }, [fetchFn]);
 
   useEffect(() => {
+    mounted.current = true;
     poll();
     const id = setInterval(poll, intervalMs);
-    return () => clearInterval(id);
+    return () => {
+      mounted.current = false;
+      clearInterval(id);
+    };
   }, [poll, intervalMs]);
 
   return { data, error, loading };

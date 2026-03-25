@@ -88,7 +88,7 @@ After ATAK is running and the plugin is installed:
 
 > **Schema note:** The plugin writes **Ditto ATAK v2 schema** — all document fields use
 > single-character names (`j` = latitude, `l` = longitude, `o` = stale time, etc.).
-> See `docs/document_schema.md` for the full field reference.
+> See `CLAUDE.md` for the field reference.
 
 ---
 
@@ -212,7 +212,7 @@ After the connector is enabled and at least one device has the ATAK plugin activ
 cp backend/.env.example backend/.env
 ```
 
-Edit `backend/.env` with your Atlas details (use the provided demo credentials, or your own from Part 4.5):
+Edit `backend/.env` with your Atlas details (use the provided demo credentials, or your own from Part 4.3):
 
 ```env
 MONGODB_URI=mongodb+srv://dashboard-reader:<password>@<cluster>.mongodb.net/?retryWrites=true&w=majority

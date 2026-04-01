@@ -5,6 +5,7 @@ import Map from "@/components/Map/Map";
 import ChatPanel from "@/components/ChatPanel/ChatPanel";
 import NodeStatus from "@/components/NodeStatus/NodeStatus";
 import AlertPanel from "@/components/AlertPanel/AlertPanel";
+import FilePanel from "@/components/FilePanel/FilePanel";
 
 export default function Home() {
   return (
@@ -26,7 +27,7 @@ export default function Home() {
           minHeight: 0,
           display: "grid",
           gridTemplateColumns: "1fr 320px",
-          gridTemplateRows: "1fr 180px 260px",
+          gridTemplateRows: "1fr 180px 260px 140px",
           gap: "12px",
           padding: "12px",
         }}
@@ -49,6 +50,11 @@ export default function Home() {
         {/* Chat — bottom right */}
         <div style={{ gridRow: "3", overflow: "hidden" }}>
           <ChatPanel />
+        </div>
+
+        {/* Shared files — full-width strip at the bottom */}
+        <div style={{ gridColumn: "1 / 3", gridRow: "4", overflow: "hidden" }}>
+          <FilePanel />
         </div>
       </div>
     </main>

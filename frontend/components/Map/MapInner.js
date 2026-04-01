@@ -337,6 +337,9 @@ export default function MapInner({ tracks, mapitems, alerts, photoFiles, isStale
     }
   }, [placing, prefix, counter, markerType, onPlaceMarker]);
 
+  // Set of mapitem IDs that belong to photos — skip them in the generic mapitem layer
+  const photoItemIds = new Set((photoFiles || []).filter(p => p.itemId && p.j != null).map(p => p.itemId));
+
   const firstFresh = tracks.find((t) => t.j != null && t.l != null);
   const center = firstFresh ? [firstFresh.j, firstFresh.l] : [27.02, -81.26];
 
@@ -380,6 +383,8 @@ export default function MapInner({ tracks, mapitems, alerts, photoFiles, isStale
 
         {mapitems.map((item) => {
           if (item.j == null || item.l == null) return null;
+          // Skip mapitems that are photo attachments — rendered as camera icons below
+          if (photoItemIds.has(item._id)) return null;
           const label = item.c || item._id;
           return (
             <Marker key={item._id} position={[item.j, item.l]} icon={makeMapitemIcon(item.w)}>
@@ -428,20 +433,29 @@ export default function MapInner({ tracks, mapitems, alerts, photoFiles, isStale
 
         {(photoFiles || []).map((photo) => {
           if (photo.j == null || photo.l == null) return null;
-          const filename = photo.c || "photo";
-          const time = photo.b ? new Date(photo.b).toLocaleString() : "unknown";
+          const time = photo.b ? new Date(photo.b).toLocaleTimeString() : "unknown";
           return (
             <Marker key={photo._id} position={[photo.j, photo.l]} icon={makeCameraIcon()}>
               <Popup>
-                <div style={{ minWidth: "160px" }}>
-                  <div style={{ fontWeight: 700, fontSize: "13px", marginBottom: "6px" }}>
-                    📷 {filename}
-                  </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px", minWidth: "140px" }}>
                   <div style={{ fontSize: "12px", lineHeight: "1.7" }}>
                     <div><strong>Author:</strong> {photo.e || "—"}</div>
                     <div><strong>Time:</strong> {time}</div>
-                    <div><strong>Size:</strong> {formatBytes(photo.sz)}</div>
                   </div>
+                  <button
+                    onClick={() => onDeleteMarker(photo.itemId)}
+                    style={{
+                      fontSize: "12px",
+                      cursor: "pointer",
+                      color: "#ef4444",
+                      background: "none",
+                      border: "1px solid #ef4444",
+                      borderRadius: "3px",
+                      padding: "2px 6px",
+                    }}
+                  >
+                    Remove marker
+                  </button>
                 </div>
               </Popup>
             </Marker>

@@ -32,6 +32,26 @@ function makeIcon(stale) {
   });
 }
 
+// ── Alert icon (pulsing red circle) ──────────────────────────────────────────
+function makeAlertIcon() {
+  return L.divIcon({
+    className: "",
+    html: `
+      <div style="
+        width: 32px; height: 32px;
+        border-radius: 50%;
+        background: #ef4444;
+        border: 2px solid #991b1b;
+        display: flex; align-items: center; justify-content: center;
+        color: white; font-weight: 900; font-size: 18px; line-height: 1;
+        box-shadow: 0 0 0 5px rgba(239,68,68,0.25);
+      ">!</div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -20],
+  });
+}
+
 // ── Marker type definitions ───────────────────────────────────────────────────
 const MARKER_TYPES = [
   { type: "a-f-G", letter: "F", fill: "#3b82f6", border: "#1d4ed8", label: "Friendly" },
@@ -250,7 +270,13 @@ function MarkerSubmenu({ markerType, onMarkerTypeChange, prefix, onPrefixChange,
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function MapInner({ tracks, mapitems, isStale, onPlaceMarker, onDeleteMarker }) {
+function extractEmergencyType(xmlStr) {
+  if (!xmlStr) return null;
+  const m = xmlStr.match(/<emergency[^>]+type=['"]([^'"]+)['"]/i);
+  return m?.[1]?.trim() ?? null;
+}
+
+export default function MapInner({ tracks, mapitems, alerts, isStale, onPlaceMarker, onDeleteMarker }) {
   const mapRef = useRef(null);
   const [mapMode, setMapMode] = useState("pan");
   const [markerType, setMarkerType] = useState("a-f-G");
@@ -345,6 +371,26 @@ export default function MapInner({ tracks, mapitems, isStale, onPlaceMarker, onD
                     Remove
                   </button>
                 </div>
+              </Popup>
+            </Marker>
+          );
+        })}
+
+        {(alerts || []).map((alert) => {
+          if (alert.j == null || alert.l == null) return null;
+          const name = alert.c || alert.e || alert._id;
+          const emergencyType = extractEmergencyType(alert.r);
+          const time = alert.b ? new Date(alert.b).toLocaleTimeString() : "unknown";
+          return (
+            <Marker key={alert._id} position={[alert.j, alert.l]} icon={makeAlertIcon()}>
+              <Tooltip permanent direction="top" offset={[0, -20]}>
+                <span style={{ color: "#ef4444", fontWeight: 700 }}>⚠ {name}</span>
+              </Tooltip>
+              <Popup>
+                <strong style={{ color: "#ef4444" }}>ALERT — {emergencyType || alert.w}</strong>
+                <br />Callsign: {name}
+                <br />Time: {time}
+                <br />LAT: {alert.j?.toFixed(5)}, LON: {alert.l?.toFixed(5)}
               </Popup>
             </Marker>
           );

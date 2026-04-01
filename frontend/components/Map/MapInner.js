@@ -32,6 +32,36 @@ function makeIcon(stale) {
   });
 }
 
+// ── Camera / photo icon ───────────────────────────────────────────────────────
+function makeCameraIcon() {
+  return L.divIcon({
+    className: "",
+    html: `
+      <div style="
+        width: 32px; height: 32px;
+        border-radius: 50%;
+        background: #1f2937;
+        border: 2px solid #9ca3af;
+        display: flex; align-items: center; justify-content: center;
+      ">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#e5e7eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+          <circle cx="12" cy="13" r="4"/>
+        </svg>
+      </div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -20],
+  });
+}
+
+function formatBytes(bytes) {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 // ── Alert icon (pulsing red circle) ──────────────────────────────────────────
 function makeAlertIcon() {
   return L.divIcon({
@@ -276,7 +306,7 @@ function extractEmergencyType(xmlStr) {
   return m?.[1]?.trim() ?? null;
 }
 
-export default function MapInner({ tracks, mapitems, alerts, isStale, onPlaceMarker, onDeleteMarker }) {
+export default function MapInner({ tracks, mapitems, alerts, photoFiles, isStale, onPlaceMarker, onDeleteMarker }) {
   const mapRef = useRef(null);
   const [mapMode, setMapMode] = useState("pan");
   const [markerType, setMarkerType] = useState("a-f-G");
@@ -391,6 +421,28 @@ export default function MapInner({ tracks, mapitems, alerts, isStale, onPlaceMar
                 <br />Callsign: {name}
                 <br />Time: {time}
                 <br />LAT: {alert.j?.toFixed(5)}, LON: {alert.l?.toFixed(5)}
+              </Popup>
+            </Marker>
+          );
+        })}
+
+        {(photoFiles || []).map((photo) => {
+          if (photo.j == null || photo.l == null) return null;
+          const filename = photo.c || "photo";
+          const time = photo.b ? new Date(photo.b).toLocaleString() : "unknown";
+          return (
+            <Marker key={photo._id} position={[photo.j, photo.l]} icon={makeCameraIcon()}>
+              <Popup>
+                <div style={{ minWidth: "160px" }}>
+                  <div style={{ fontWeight: 700, fontSize: "13px", marginBottom: "6px" }}>
+                    📷 {filename}
+                  </div>
+                  <div style={{ fontSize: "12px", lineHeight: "1.7" }}>
+                    <div><strong>Author:</strong> {photo.e || "—"}</div>
+                    <div><strong>Time:</strong> {time}</div>
+                    <div><strong>Size:</strong> {formatBytes(photo.sz)}</div>
+                  </div>
+                </div>
               </Popup>
             </Marker>
           );

@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from routers import tracks, chat, mapitems, alerts
+from routers import tracks, chat, mapitems, alerts, files
 
 app = FastAPI(title="TAK Situational Demo")
 
@@ -20,6 +20,7 @@ app.include_router(tracks.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
 app.include_router(mapitems.router, prefix="/api")
 app.include_router(alerts.router, prefix="/api")
+app.include_router(files.router, prefix="/api")
 
 @app.get("/")
 async def health():

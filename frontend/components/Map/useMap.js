@@ -27,9 +27,16 @@ export function useMap() {
     return res.json();
   }, []);
 
+  const fetchFiles = useCallback(async () => {
+    const res = await fetch("/api/files");
+    if (!res.ok) throw new Error("Failed to fetch files");
+    return res.json();
+  }, []);
+
   const { data: tracks, loading: tracksLoading } = usePolling(fetchTracks, 2000);
   const { data: mapitems, loading: mapitemsLoading } = usePolling(fetchMapitems, 2000);
   const { data: alerts } = usePolling(fetchAlerts, 2000);
+  const { data: photoFiles } = usePolling(fetchFiles, 5000);
 
   const placeMarker = useCallback(async (lat, lon, label, markerType) => {
     const res = await fetch("/api/mapitems", {
@@ -53,6 +60,7 @@ export function useMap() {
     tracks: tracks || [],
     mapitems: mapitems || [],
     alerts: alerts || [],
+    photoFiles: photoFiles || [],
     loading: tracksLoading || mapitemsLoading,
     placeMarker,
     deleteMarker,

@@ -7,7 +7,7 @@ import { useMap, isStale } from "./useMap";
 const MapInner = dynamic(() => import("./MapInner"), { ssr: false });
 
 export default function Map() {
-  const { tracks, mapitems, loading } = useMap();
+  const { tracks, mapitems, loading, placeMarker, deleteMarker } = useMap();
 
   if (loading) {
     return (
@@ -17,5 +17,13 @@ export default function Map() {
     );
   }
 
-  return <MapInner tracks={tracks} mapitems={mapitems} isStale={isStale} />;
+  return (
+    <MapInner
+      tracks={tracks}
+      mapitems={mapitems}
+      isStale={isStale}
+      onPlaceMarker={placeMarker}
+      onDeleteMarker={deleteMarker}
+    />
+  );
 }

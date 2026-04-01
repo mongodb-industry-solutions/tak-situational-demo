@@ -2,6 +2,7 @@
 
 import { Body, H3 } from "@leafygreen-ui/typography";
 import { palette } from "@leafygreen-ui/palette";
+import Button from "@leafygreen-ui/button";
 import { useChatPanel } from "./useChatPanel";
 
 function formatTime(ms) {
@@ -18,7 +19,7 @@ function formatTime(ms) {
 }
 
 export default function ChatPanel() {
-  const { messages, loading, bottomRef } = useChatPanel();
+  const { messages, loading, bottomRef, draft, setDraft, sending, sendMessage } = useChatPanel();
 
   return (
     <div
@@ -101,6 +102,45 @@ export default function ChatPanel() {
           </div>
         ))}
         <div ref={bottomRef} />
+      </div>
+
+      <div
+        style={{
+          padding: "10px 12px",
+          borderTop: `1px solid ${palette.gray.dark2}`,
+          display: "flex",
+          gap: "8px",
+          flexShrink: 0,
+        }}
+      >
+        <input
+          type="text"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+          placeholder="Send message to ATAK…"
+          disabled={sending}
+          style={{
+            flex: 1,
+            backgroundColor: palette.gray.dark2,
+            border: `1px solid ${palette.gray.dark1}`,
+            borderRadius: "4px",
+            color: palette.white,
+            fontSize: "13px",
+            fontFamily: "monospace",
+            padding: "6px 10px",
+            outline: "none",
+          }}
+        />
+        <Button
+          size="small"
+          variant="primary"
+          onClick={sendMessage}
+          disabled={!draft.trim() || sending}
+          isLoading={sending}
+        >
+          Send
+        </Button>
       </div>
     </div>
   );

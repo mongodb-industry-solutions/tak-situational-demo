@@ -22,11 +22,31 @@ export function useMap() {
   }, []);
 
   const { data: tracks, loading: tracksLoading } = usePolling(fetchTracks, 2000);
-  const { data: mapitems, loading: mapitemsLoading } = usePolling(fetchMapitems, 5000);
+  const { data: mapitems, loading: mapitemsLoading } = usePolling(fetchMapitems, 2000);
+
+  const placeMarker = useCallback(async (lat, lon, label, markerType) => {
+    const res = await fetch("/api/mapitems", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lat, lon, label, marker_type: markerType }),
+    });
+    if (!res.ok) throw new Error("Failed to place marker");
+    return res.json();
+  }, []);
+
+  const deleteMarker = useCallback(async (id) => {
+    const res = await fetch(`/api/mapitems?id=${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) throw new Error("Failed to delete marker");
+    return res.json();
+  }, []);
 
   return {
     tracks: tracks || [],
     mapitems: mapitems || [],
     loading: tracksLoading || mapitemsLoading,
+    placeMarker,
+    deleteMarker,
   };
 }

@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from routers import tracks, chat, mapitems, alerts, files
+from routers import tracks, chat, mapitems, alerts, files  # noqa: E402
 
 app = FastAPI(title="TAK Situational Demo")
 

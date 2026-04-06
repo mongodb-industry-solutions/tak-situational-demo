@@ -7,6 +7,8 @@ env:
 envSecrets:
   MONGODB_URI: tak-situational-demo
   DATABASE_NAME: tak-situational-demo
+  DITTO_URL_EP: tak-situational-demo
+  DITTO_API_KEY: tak-situational-demo
 
 sidecarContainers:
   - name: backend
@@ -22,6 +24,16 @@ sidecarContainers:
           secretKeyRef:
             name: tak-situational-demo
             key: DATABASE_NAME
+      - name: DITTO_URL_EP
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: DITTO_URL_EP
+      - name: DITTO_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: DITTO_API_KEY
 
 ## AWS IRSA
 serviceAccount:

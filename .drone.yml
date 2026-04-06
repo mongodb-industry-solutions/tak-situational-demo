@@ -96,7 +96,7 @@ steps:
         - "sidecarContainers[0].resources.requests.memory=256Mi"
       api_server: https://api.staging.corp.mongodb.com
       kubernetes_token:
-        from_secret: staging_kubernetes_token
+        from_secret: stag_kub_pr_token
       values_files: ["environment/staging.yaml"]
     when:
       event:

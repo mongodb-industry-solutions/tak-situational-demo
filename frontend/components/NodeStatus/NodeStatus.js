@@ -12,6 +12,17 @@ function timeAgo(ms) {
   return `${Math.floor(diff / 3600)}h ago`;
 }
 
+function Chevron({ open }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke={palette.gray.base} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+      style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.15s ease", flexShrink: 0 }}
+    >
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>
+  );
+}
+
 function NodeCard({ node }) {
   const cardBorder = node.stale ? palette.red.dark2 : palette.green.dark2;
   const statusColor = node.stale ? palette.red.base : palette.green.base;
@@ -30,27 +41,10 @@ function NodeCard({ node }) {
       }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span
-          style={{
-            color: palette.white,
-            fontWeight: 700,
-            fontSize: "14px",
-            fontFamily: "monospace",
-          }}
-        >
+        <span style={{ color: palette.white, fontWeight: 700, fontSize: "14px", fontFamily: "monospace" }}>
           {node.callsign}
         </span>
-        <span
-          style={{
-            color: statusColor,
-            fontSize: "11px",
-            fontWeight: 600,
-            fontFamily: "monospace",
-            border: `1px solid ${statusColor}`,
-            borderRadius: "3px",
-            padding: "1px 6px",
-          }}
-        >
+        <span style={{ color: statusColor, fontSize: "11px", fontWeight: 600, fontFamily: "monospace", border: `1px solid ${statusColor}`, borderRadius: "3px", padding: "1px 6px" }}>
           {statusLabel}
         </span>
       </div>
@@ -66,57 +60,26 @@ function NodeCard({ node }) {
   );
 }
 
-export default function NodeStatus() {
+export default function NodeStatus({ collapsed, onToggle }) {
   const { nodes, loading } = useNodeStatus();
 
   return (
-    <div
-      style={{
-        backgroundColor: palette.gray.dark3,
-        border: `1px solid ${palette.gray.dark2}`,
-        borderRadius: "6px",
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        overflow: "hidden",
-      }}
-    >
+    <div style={{ backgroundColor: palette.gray.dark3, border: `1px solid ${palette.gray.dark2}`, borderRadius: "6px", display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
       <div
-        style={{
-          padding: "12px 16px",
-          borderBottom: `1px solid ${palette.gray.dark2}`,
-          flexShrink: 0,
-        }}
+        onClick={onToggle}
+        style={{ padding: "10px 16px", borderBottom: collapsed ? "none" : `1px solid ${palette.gray.dark2}`, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", userSelect: "none" }}
       >
-        <H3 style={{ color: palette.white, margin: 0, fontSize: "14px" }}>
-          NODE STATUS
-        </H3>
+        <H3 style={{ color: palette.white, margin: 0, fontSize: "14px" }}>NODE STATUS</H3>
+        <Chevron open={!collapsed} />
       </div>
 
-      <div
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "12px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "8px",
-        }}
-      >
-        {loading && (
-          <Body style={{ color: palette.gray.base, fontSize: "13px" }}>
-            Loading…
-          </Body>
-        )}
-        {!loading && nodes.length === 0 && (
-          <Body style={{ color: palette.gray.base, fontSize: "13px" }}>
-            No nodes detected.
-          </Body>
-        )}
-        {nodes.map((node) => (
-          <NodeCard key={node.id} node={node} />
-        ))}
-      </div>
+      {!collapsed && (
+        <div style={{ flex: 1, overflowY: "auto", padding: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
+          {loading && <Body style={{ color: palette.gray.base, fontSize: "13px" }}>Loading…</Body>}
+          {!loading && nodes.length === 0 && <Body style={{ color: palette.gray.base, fontSize: "13px" }}>No nodes detected.</Body>}
+          {nodes.map((node) => <NodeCard key={node.id} node={node} />)}
+        </div>
+      )}
     </div>
   );
 }

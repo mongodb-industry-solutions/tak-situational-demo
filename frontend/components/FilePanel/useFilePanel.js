@@ -10,7 +10,13 @@ export function useFilePanel() {
     return res.json();
   }, []);
 
-  const { data: files, loading } = usePolling(fetchFiles, 5000);
+  const { data: files, loading, refresh } = usePolling(fetchFiles, 2000);
 
-  return { files: files || [], loading };
+  const deleteFile = useCallback(async (fileId) => {
+    const res = await fetch(`/api/files/${encodeURIComponent(fileId)}`, { method: "DELETE" });
+    if (!res.ok) throw new Error("Failed to delete file");
+    refresh();
+  }, [refresh]);
+
+  return { files: files || [], loading, deleteFile };
 }

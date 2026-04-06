@@ -36,5 +36,5 @@ export function usePolling(fetchFn, intervalMs = 2000) {
     };
   }, [poll, intervalMs]);
 
-  return { data, error, loading };
+  return { data, error, loading, refresh: poll };
 }

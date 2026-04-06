@@ -2,7 +2,6 @@ services:
   tak-situational-backend:
     build:
       context: .
-      no_cache: true
       dockerfile: Dockerfile.backend
     image: tak-situational-backend:latest
     env_file:
@@ -14,7 +13,6 @@ services:
   tak-situational-frontend:
     build:
       context: .
-      no_cache: true
       dockerfile: Dockerfile.frontend
     image: tak-situational-frontend:latest
     ports:

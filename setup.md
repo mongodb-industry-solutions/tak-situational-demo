@@ -37,8 +37,6 @@ Data flows one way — from field devices down to the dashboard — and the dash
 ## Prerequisites
 
 - One or more Android **physical** devices running **Android 10+**
-  (tested on Pixel 8A, Android 14 — virtual/emulated devices are not recommended;
-  GPS simulation and sideloading are unreliable on emulators)
 - **ATAK CIV** app (free from [TAK.gov](https://tak.gov) — requires a free account)
 - **Ditto ATAK Plugin** APK — see Part 1 for how to obtain it
 - A [Ditto Portal](https://portal.ditto.live) account (Parts 2 & 3)
@@ -52,19 +50,19 @@ Data flows one way — from field devices down to the dashboard — and the dash
 
 ## Part 1 — Android Devices: ATAK CIV + Ditto ATAK Plugin
 
-The demo supports **one or more physical Android devices**. Each device runs ATAK CIV with the
-Ditto ATAK Plugin, forming a P2P mesh. All devices sync their position and chat data through
-the Ditto Big Peer into Atlas, where the dashboard shows the combined operational picture.
+The demo supports **one or more physical Android devices**. Each device runs ATAK CIV with the Ditto ATAK Plugin, forming a P2P mesh. All devices sync their position and chat data through the Ditto Big Peer into Atlas, where the dashboard shows the combined operational picture.
 
 ### 1.1 Install ATAK CIV
 
-1. Register a free account at [tak.gov](https://tak.gov).
-2. Download the latest **ATAK CIV** APK from the TAK.gov product page.
-3. Sideload the APK onto each Android device:
-   - Enable **Install from unknown sources** in Android Settings → Security.
-   - Transfer the APK to the device (USB, email, etc.) and tap to install.
+Register a free account at [tak.gov](https://tak.gov) & download the latest **ATAK CIV** APK from the TAK.gov product page. Or directly from Goole Play, look for [ATAK CIV](https://play.google.com/store/apps/details?id=com.atakmap.app.civ&pcampaignid=web_share). 
 
-### 1.2 Obtain the Ditto ATAK Plugin
+At this step is very important to open the app and give it all the required permissions (location, storage, etc.) to work properly.
+
+*Don't speed through the permissions, the app will guide you on what is needed.*
+
+To improve maps view I recommend to download maps from this repo: [ATAK-Maps](https://github.com/joshuafuller/ATAK-Maps), this isn't required.
+
+### 1.2 Obtain the Ditto ATAK Plugin & install on Each Device
 
 The plugin used in this demo is the **[Ditto ATAK Plugin](https://www.ditto.com/products/ditto-atak-plugin)**
 — a purpose-built ATAK integration from Ditto, not the general-purpose Ditto Edge SDK.
@@ -75,7 +73,11 @@ The plugin used in this demo is the **[Ditto ATAK Plugin](https://www.ditto.com/
 > - Contact the Ditto team directly.
 > - Or ask the MongoDB Industry Solutions team — **a copy is already available for this demo**.
 
-Once you have the APK, sideload it onto each device the same way as ATAK CIV above.
+Once you have the APK, sideload it onto each device:
+
+- Some devices require enabling **Install from unknown sources** in Android Settings → Security. This is different for each Android version and device manufacturer; follow user guides on your specific device.
+
+- Transfer the APK to the device (USB, email, etc.) and tap to install. Some devices may require confirming the installation after a security scan. ATAK-CIV app may need to be reloaded or restarted after the plugin installation for the plugin to appear in the Tools menu.
 
 ### 1.3 Configure the Ditto ATAK Plugin on Each Device
 
@@ -83,8 +85,7 @@ After ATAK is running and the plugin is installed:
 
 1. Open ATAK → tap the **Ditto** icon in the toolbar (or **Tools → Ditto ATAK Plugin**).
 2. Tap **Connect**. Scan the QR code in the demo.
-3. Ensure GPS is active and the device is moving — ATAK will begin emitting CoT events
-   that the plugin captures and syncs to the mesh.
+3. Ensure GPS is active and the device is moving — ATAK will begin emitting CoT events that the plugin captures and syncs to the mesh.
 
 > **Schema note:** The plugin writes **Ditto ATAK v2 schema** — all document fields use
 > single-character names (`j` = latitude, `l` = longitude, `o` = stale time, etc.).

@@ -69,3 +69,7 @@ class MongoDBConnector:
         collection = self.get_collection(collection_name)
         result = collection.delete_many(query)
         return result.deleted_count
+
+
+# Shared singleton — import this in routers instead of instantiating MongoDBConnector() directly.
+db = MongoDBConnector()

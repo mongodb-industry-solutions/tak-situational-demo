@@ -76,7 +76,6 @@ backend/.venv
 backend/venv
 
 # UV files
-backend/uv.lock
 backend/.uv-cache
 
 # Distribution / packaging

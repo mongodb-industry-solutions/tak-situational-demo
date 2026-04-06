@@ -1,0 +1,191 @@
+---
+kind: pipeline
+type: kubernetes
+name: validate-pr
+
+trigger:
+  event:
+    - pull_request
+  branch:
+    - staging
+    - main
+
+steps:
+  - name: secret-scan
+    image: zricethezav/gitleaks:latest
+    commands:
+      - gitleaks detect --source . --verbose
+    when:
+      event:
+        - pull_request
+
+  - name: dependency-scan
+    image: ghcr.io/aquasecurity/trivy:0.62.0
+    commands:
+      - trivy fs --severity CRITICAL --exit-code 1 .
+    when:
+      event:
+        - pull_request
+
+  - name: lint-frontend
+    image: node:22-alpine
+    commands:
+      - cd frontend && npm install && npx eslint .
+    when:
+      event:
+        - pull_request
+
+  - name: lint-backend
+    image: python:3.13-slim
+    commands:
+      - pip install ruff
+      - ruff check backend/
+    when:
+      event:
+        - pull_request
+
+  - name: build-check-frontend
+    image: plugins/kaniko-ecr
+    settings:
+      no_push: true
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/tak-situational-demo
+      dockerfile: Dockerfile.frontend
+      context: .
+    when:
+      event:
+        - pull_request
+
+  - name: build-check-backend
+    image: plugins/kaniko-ecr
+    settings:
+      no_push: true
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/tak-situational-demo
+      dockerfile: Dockerfile.backend
+      context: .
+    when:
+      event:
+        - pull_request
+
+  - name: helm-dry-run-staging
+    image: public.ecr.aws/kanopy/drone-helm:v3
+    settings:
+      dry_run: true
+      chart: mongodb/web-app
+      chart_version: 4.30.0
+      add_repos: [mongodb=https://10gen.github.io/helm-charts]
+      namespace: industrysolutions
+      release: tak-situational-demo
+      values:
+        - "sidecarContainers[0].name=backend"
+        - "sidecarContainers[0].image=test"
+        - "sidecarContainers[0].containerPort=8000"
+        - "image.tag=test"
+        - "image.repository=test"
+        - "ingress.enabled=true"
+        - "ingress.hosts[0]=tak-situational-demo.industrysolutions.staging.corp.mongodb.com"
+        - "mesh.enabled=true"
+        - "resources.limits.cpu=500m"
+        - "resources.limits.memory=512Mi"
+        - "resources.requests.cpu=100m"
+        - "resources.requests.memory=256Mi"
+        - "sidecarContainers[0].resources.limits.cpu=500m"
+        - "sidecarContainers[0].resources.limits.memory=512Mi"
+        - "sidecarContainers[0].resources.requests.cpu=100m"
+        - "sidecarContainers[0].resources.requests.memory=256Mi"
+      api_server: https://api.staging.corp.mongodb.com
+      kubernetes_token:
+        from_secret: stag_kub_pr_token
+      values_files: ["environment/staging.yaml"]
+    when:
+      event:
+        - pull_request
+
+---
+kind: pipeline
+type: kubernetes
+name: staging-combined
+
+trigger:
+  branch:
+    - staging
+
+steps:
+  # Step 1: Build and publish backend Docker image
+  - name: publish-backend
+    image: plugins/kaniko-ecr
+    settings:
+      create_repository: true
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/tak-situational-demo-backend
+      dockerfile: Dockerfile.backend
+      context: .
+      tags:
+        - git-${DRONE_COMMIT_SHA:0:7}
+        - latest
+      access_key:
+        from_secret: ecr_access_key
+      secret_key:
+        from_secret: ecr_secret_key
+    when:
+      event:
+        - push
+
+  # Step 2: Build and publish frontend Docker image
+  - name: publish-frontend
+    image: plugins/kaniko-ecr
+    settings:
+      create_repository: true
+      registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
+      repo: industrysolutions/tak-situational-demo-frontend
+      dockerfile: Dockerfile.frontend
+      context: .
+      tags:
+        - git-${DRONE_COMMIT_SHA:0:7}
+        - latest
+      access_key:
+        from_secret: ecr_access_key
+      secret_key:
+        from_secret: ecr_secret_key
+    when:
+      event:
+        - push
+
+  # Step 3: Deploy combined pod (frontend + backend sidecar) to Kubernetes
+  - name: deploy-combined-staging
+    image: public.ecr.aws/kanopy/drone-helm:v3
+    settings:
+      chart: mongodb/web-app
+      chart_version: 4.30.0
+      add_repos: [mongodb=https://10gen.github.io/helm-charts]
+      namespace: industrysolutions
+      release: tak-situational-demo
+      values_files: ["environment/staging.yaml"]
+      values:
+        - "sidecarContainers[0].name=backend"
+        - "sidecarContainers[0].image=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/tak-situational-demo-backend:git-${DRONE_COMMIT_SHA:0:7}"
+        - "sidecarContainers[0].containerPort=8000"
+        - "image.tag=git-${DRONE_COMMIT_SHA:0:7}"
+        - "image.repository=795250896452.dkr.ecr.us-east-1.amazonaws.com/industrysolutions/tak-situational-demo-frontend"
+        - "ingress.enabled=true"
+        - "ingress.hosts[0]=tak-situational-demo.industrysolutions.staging.corp.mongodb.com"
+        - "mesh.enabled=true"
+        # Frontend resources (reduced defaults for demos - increase if OOMKilled)
+        - "resources.limits.cpu=500m"
+        - "resources.limits.memory=512Mi"
+        - "resources.requests.cpu=100m"
+        - "resources.requests.memory=256Mi"
+        # Backend sidecar resources (reduced defaults for demos - increase if OOMKilled)
+        - "sidecarContainers[0].resources.limits.cpu=500m"
+        - "sidecarContainers[0].resources.limits.memory=512Mi"
+        - "sidecarContainers[0].resources.requests.cpu=100m"
+        - "sidecarContainers[0].resources.requests.memory=256Mi"
+      api_server: https://api.staging.corp.mongodb.com
+      kubernetes_token:
+        from_secret: staging_kubernetes_token
+    when:
+      branch:
+        - staging
+      event:
+        - push

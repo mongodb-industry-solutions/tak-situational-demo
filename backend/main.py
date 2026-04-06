@@ -1,24 +1,27 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi import APIRouter
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
-app = FastAPI()
+from routers import tracks, chat, mapitems, alerts, files  # noqa: E402
+
+app = FastAPI(title="TAK Situational Demo")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-router = APIRouter()
+app.include_router(tracks.router, prefix="/api")
+app.include_router(chat.router, prefix="/api")
+app.include_router(mapitems.router, prefix="/api")
+app.include_router(alerts.router, prefix="/api")
+app.include_router(files.router, prefix="/api")
 
 @app.get("/")
-async def read_root(request: Request):
-    return {"message":"Server is running"}
+async def health():
+    return {"message": "Server is running"}

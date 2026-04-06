@@ -5,7 +5,7 @@ WORKDIR /
 RUN pip install uv
 
 # Copy lock file + manifest first so this layer is cached until deps change
-COPY /backend/pyproject.toml /backend/uv.lock ./
+COPY backend/pyproject.toml backend/uv.lock ./
 
 # --frozen: skip resolution, install exactly what the lock file says
 RUN uv sync --no-dev --frozen

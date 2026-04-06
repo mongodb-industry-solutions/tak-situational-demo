@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import InfoWizard from "@/components/infoWizard/InfoWizard";
 import JoinMeshModal from "@/components/JoinMeshModal/JoinMeshModal";
 import { palette } from "@leafygreen-ui/palette";
@@ -22,7 +23,7 @@ export default function NavBar() {
     >
       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
         {/* MongoDB leaf mark */}
-        <img src="/mongo.png" alt="MongoDB" style={{ height: "28px" }} />
+        <Image src="/mongo.png" alt="MongoDB" height={28} width={28} style={{ objectFit: "contain" }} />
         <span
           style={{
             color: palette.white,

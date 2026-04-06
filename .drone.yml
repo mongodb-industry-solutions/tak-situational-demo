@@ -118,7 +118,7 @@ steps:
     settings:
       create_repository: true
       registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
-      repo: industrysolutions/tak-situational-demo
+      repo: industrysolutions/tak-situational-demo-backend
       dockerfile: Dockerfile.backend
       context: .
       tags:
@@ -138,7 +138,7 @@ steps:
     settings:
       create_repository: true
       registry: 795250896452.dkr.ecr.us-east-1.amazonaws.com
-      repo: industrysolutions/tak-situational-demo
+      repo: industrysolutions/tak-situational-demo-frontend
       dockerfile: Dockerfile.frontend
       context: .
       tags:

@@ -2,10 +2,9 @@ import time
 import uuid
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from db.mdb import MongoDBConnector
+from db.mdb import db as _db
 
 router = APIRouter()
-_db = MongoDBConnector()
 
 _COMMAND_CALLSIGN = "COMMAND"
 _COMMAND_UID = "COMMAND-VEHICLE"
@@ -18,7 +17,7 @@ def _serialise(doc):
 async def get_chat(limit: int = 50):
     """Return the most recent chat messages, ordered by time ascending."""
     collection = _db.get_collection("chat")
-    docs = list(collection.find({}, sort=[("b", -1)], limit=limit))
+    docs = list(collection.find({"_r": False}, sort=[("b", -1)], limit=limit))
     docs.reverse()
     return [_serialise(d) for d in docs]
 

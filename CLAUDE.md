@@ -23,7 +23,9 @@ Android ATAK CIV (Ditto Edge Sync plugin)
   → Next.js dashboard (frontend/)
 ```
 
-The backend is **READ-ONLY** from MongoDB Atlas. It does not write to Atlas.
+The backend reads from MongoDB Atlas for all display data. It also writes back to Atlas
+for command actions — sending chat messages, placing/deleting map markers, and
+soft-deleting files — which propagate to ATAK devices via the Ditto connector.
 
 ## Tech Stack
 
@@ -32,13 +34,13 @@ The backend is **READ-ONLY** from MongoDB Atlas. It does not write to Atlas.
 | Backend | Python 3.13, FastAPI, uvicorn, pymongo, python-dotenv |
 | Frontend | Next.js 15 (App Router), React 18.2, JavaScript (no TypeScript) |
 | UI | LeafyGreen UI (`@leafygreen-ui/*`), Tailwind CSS 4 |
-| Map | Leaflet.js via react-leaflet (dynamic import, SSR disabled) |
+| Map | Leaflet.js via react-leaflet v4.2.1 (dynamic import, SSR disabled) |
 | Package mgmt | uv (backend), npm (frontend) |
 | Deploy | Docker, Kanopy (Kubernetes, Drone CI/CD) |
 
 ## Ditto ATAK v2 Schema
 
-All Atlas collections use short single-char field names. Full spec in `docs/document_schema.md`.
+All Atlas collections use short single-char field names. Full spec in `docs/document_schema.md` (local only — `docs/` is gitignored).
 
 Key fields the dashboard cares about:
 

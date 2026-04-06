@@ -1,13 +1,13 @@
+import re
 import time
 import uuid
 from datetime import datetime, timezone
 from typing import Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from db.mdb import MongoDBConnector
+from db.mdb import db as _db
 
 router = APIRouter()
-_db = MongoDBConnector()
 
 _COMMAND_UID = "COMMAND-VEHICLE"
 _COMMAND_PEER_KEY = "COMMAND-VEHICLE"   # must be non-empty — plugin rejects events with empty peer key
@@ -32,7 +32,7 @@ class PlaceMarkerRequest(BaseModel):
 @router.post("/mapitems", status_code=201)
 async def place_marker(body: PlaceMarkerRequest):
     """Place a map marker from the command center into the Ditto mesh via Atlas."""
-    label = body.label.strip()
+    label = re.sub(r"[<>&\"']", "", body.label.strip())
     if not label:
         raise HTTPException(status_code=400, detail="Label cannot be empty")
     now = int(time.time() * 1000)
@@ -91,10 +91,14 @@ async def delete_marker(marker_id: str):
     doc = collection.find_one({"_id": marker_id})
     if not doc:
         raise HTTPException(status_code=404, detail="Marker not found")
+    now_ms = int(time.time() * 1000)
     tombstone = dict(doc)
     tombstone["_r"] = True
     tombstone["a"] = _COMMAND_PEER_KEY
     tombstone["d"] = _COMMAND_UID
+    tombstone["b"] = now_ms
+    tombstone["n"] = now_ms
+    tombstone["_c"] = tombstone.get("_c", 0) + 1
     collection.delete_one({"_id": marker_id})
     collection.insert_one(tombstone)
     return {"deleted": True}

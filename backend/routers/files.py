@@ -1,12 +1,12 @@
 import base64
 import os
+import time
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
-from db.mdb import MongoDBConnector
+from db.mdb import db as _db
 
 router = APIRouter()
-_db = MongoDBConnector()
 
 _COMMAND_UID = "COMMAND-VEHICLE"
 _COMMAND_PEER_KEY = "COMMAND-VEHICLE"
@@ -59,6 +59,8 @@ async def get_thumbnail(file_id: str):
     ditto_token = os.getenv("DITTO_API_KEY", "")
     if not ditto_ep:
         raise HTTPException(status_code=503, detail="DITTO_URL_EP not configured")
+    if not ditto_token:
+        raise HTTPException(status_code=503, detail="DITTO_API_KEY not configured")
 
     ditto_url = f"https://{ditto_ep}"
 
@@ -95,10 +97,13 @@ async def delete_file(file_id: str):
     if not doc:
         raise HTTPException(status_code=404, detail="File not found")
 
+    now_ms = int(time.time() * 1000)
     tombstone = dict(doc)
     tombstone["_r"] = True
     tombstone["a"] = _COMMAND_PEER_KEY
     tombstone["d"] = _COMMAND_UID
+    tombstone["b"] = now_ms
+    tombstone["_c"] = tombstone.get("_c", 0) + 1
     file_col.delete_one({"_id": file_id})
     file_col.insert_one(tombstone)
 
@@ -110,6 +115,9 @@ async def delete_file(file_id: str):
             tombstone_item["_r"] = True
             tombstone_item["a"] = _COMMAND_PEER_KEY
             tombstone_item["d"] = _COMMAND_UID
+            tombstone_item["b"] = now_ms
+            tombstone_item["n"] = now_ms
+            tombstone_item["_c"] = tombstone_item.get("_c", 0) + 1
             mapitem_col.delete_one({"_id": doc["itemId"]})
             mapitem_col.insert_one(tombstone_item)
 

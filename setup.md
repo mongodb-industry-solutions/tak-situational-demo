@@ -3,8 +3,9 @@
 This guide walks through setting up the entire system from scratch: one or more Android devices
 running ATAK CIV with the Ditto ATAK Plugin, through the Ditto Cloud Big Peer and MongoDB Connector,
 into a MongoDB Atlas cluster, and finally the command vehicle dashboard in this repository.
-Data flows one way — from field devices down to the dashboard — and the dashboard is
-**read-only** from Atlas.
+Data flows primarily from field devices down to the dashboard. The dashboard also writes
+back to Atlas for command actions (sending chat messages, placing/deleting map markers,
+and soft-deleting files), which propagate to ATAK devices via the Ditto connector.
 
 > **Demo shortcut:** For this demo, the Ditto Big Peer, MongoDB Connector, and Atlas cluster
 > are **already configured and can be provided by the MongoDB Industry Solutions team.**
@@ -22,7 +23,7 @@ Data flows one way — from field devices down to the dashboard — and the dash
   ▼
 [MongoDB Atlas]
   Collections: track · mapitem · chat
-  │  pymongo (read-only)
+  │  pymongo (read + command writes)
   ▼
 [FastAPI Backend]  ←  this repo
   │  REST API polled every 2 s
@@ -54,7 +55,7 @@ The demo supports **one or more physical Android devices**. Each device runs ATA
 
 ### 1.1 Install ATAK CIV
 
-Register a free account at [tak.gov](https://tak.gov) & download the latest **ATAK CIV** APK from the TAK.gov product page. Or directly from Goole Play, look for [ATAK CIV](https://play.google.com/store/apps/details?id=com.atakmap.app.civ&pcampaignid=web_share). 
+Register a free account at [tak.gov](https://tak.gov) & download the latest **ATAK CIV** APK from the TAK.gov product page. Or directly from Google Play, look for [ATAK CIV](https://play.google.com/store/apps/details?id=com.atakmap.app.civ&pcampaignid=web_share). 
 
 At this step is very important to open the app and give it all the required permissions (location, storage, etc.) to work properly.
 
@@ -275,10 +276,10 @@ Work through these checks top-to-bottom:
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
 | No documents in Atlas | Connector not reaching Atlas | Add Ditto Big Peer egress IPs to Atlas Network Access (Part 3.2) |
-| Connector configuration fails | Wrong connection string or user | Use the `ditto-connector` readWrite user string (Part 4.5) |
+| Connector configuration fails | Wrong connection string or user | Use the `ditto-connector` readWrite user string (Part 4.3) |
 | Backend fails to start | Missing or invalid `MONGODB_URI` | Check `backend/.env`; verify Atlas Network Access includes your machine IP |
 | Map shows no markers | Backend returns empty `track` array | Confirm documents exist in Atlas with `_r: false`; check `GET /api/tracks` directly |
 | Markers are grey with ⚠ STALE | Normal — device not recently updated | Last-known position is always displayed; stale means `Date.now() > doc.o` |
 | Chat panel is empty | Field name mismatch | Confirm Atlas `chat` documents use `msg`/`e`/`b` (not `message`/`authorCallsign`/`time`) |
 | `localhost:3000` unreachable (Docker) | `backend/.env` missing before build | Create `backend/.env` first, then `make clean && make build` |
-| Docker container starts but API errors | `BACKEND_URL` misconfigured | Should be `http://tak-situational-backend:8080` (set automatically by `docker-compose.yml`) |
+| Docker container starts but API errors | `BACKEND_URL` misconfigured | Should be `http://tak-situational-backend:8000` (set automatically by `docker-compose.yml`) |

@@ -1,8 +1,7 @@
 from fastapi import APIRouter
-from db.mdb import MongoDBConnector
+from db.mdb import db as _db
 
 router = APIRouter()
-_db = MongoDBConnector()
 
 def _serialise(doc):
     doc["_id"] = str(doc["_id"])

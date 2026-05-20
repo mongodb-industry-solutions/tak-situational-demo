@@ -32,13 +32,33 @@ export function useNodeStatus() {
     return res.json();
   }, []);
 
+  const fetchAlerts = useCallback(async () => {
+    const res = await fetch("/api/alerts");
+    if (!res.ok) throw new Error("Failed to fetch alerts");
+    return res.json();
+  }, []);
+
+  const fetchTelemetry = useCallback(async () => {
+    const res = await fetch("/api/telemetry");
+    if (!res.ok) throw new Error("Failed to fetch telemetry");
+    return res.json();
+  }, []);
+
   const { data: tracks, loading } = usePolling(fetchTracks, 2000);
+  const { data: alerts } = usePolling(fetchAlerts, 2000);
+  const { data: telemetry } = usePolling(fetchTelemetry, 5000);
+
+  const alertList = Array.isArray(alerts) ? alerts : [];
+  const telemList = Array.isArray(telemetry) ? telemetry : [];
 
   const nodes = (tracks || []).map((t) => {
     const group = parseGroup(t.r);
+    const callsign = t.c || t.e || t._id;
+    const nodeAlert = alertList.find((a) => (a.c || a.e) === callsign) ?? null;
+    const nodeTelem = telemList.find((tel) => (tel.c || tel.e) === callsign) ?? null;
     return {
       id: t._id,
-      callsign: t.c || t.e || t._id,
+      callsign,
       cotType: t.w || null,
       lastUpdateMs: t.b,
       stale: isStale(t),
@@ -51,6 +71,8 @@ export function useNodeStatus() {
       battery: parseBattery(t.r),
       team: group?.team ?? null,
       role: group?.role ?? null,
+      alert: nodeAlert,
+      telemetry: nodeTelem,
     };
   });
 

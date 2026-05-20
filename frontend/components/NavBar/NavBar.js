@@ -23,7 +23,7 @@ export default function NavBar() {
     >
       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
         {/* MongoDB leaf mark */}
-        <Image src="/mongo.png" alt="MongoDB" height={28} width={28} style={{ objectFit: "contain" }} />
+        <Image src="/mongo.png" alt="MongoDB" height={28} width={13} />
         <span
           style={{
             color: palette.white,

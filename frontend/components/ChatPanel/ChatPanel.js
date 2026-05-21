@@ -1,9 +1,19 @@
 "use client";
 
+import { useState } from "react";
+import { createPortal } from "react-dom";
 import { Body, H3 } from "@leafygreen-ui/typography";
 import { palette } from "@leafygreen-ui/palette";
 import Button from "@leafygreen-ui/button";
 import { useChatPanel } from "./useChatPanel";
+import { useFilePanel } from "@/components/FilePanel/useFilePanel";
+
+const CMD_BUTTONS = [
+  { label: "RETREAT", msg: "FALL BACK" },
+  { label: "REPORT",  msg: "REPORT STATUS" },
+  { label: "ADVANCE", msg: "MOVE TO RALLY POINT" },
+  { label: "HOLD",    msg: "HOLD POSITION" },
+];
 
 function formatTime(ms) {
   if (!ms) return "";
@@ -12,68 +22,288 @@ function formatTime(ms) {
   } catch { return ""; }
 }
 
-function Chevron({ open }) {
+function formatFileTime(ms) {
+  if (!ms) return "—";
+  try {
+    return new Date(ms).toLocaleString([], {
+      month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+    });
+  } catch { return "—"; }
+}
+
+function formatSize(bytes) {
+  if (!bytes) return "—";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function CloseIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-      stroke={palette.gray.base} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-      style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 0.15s ease", flexShrink: 0 }}
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
     >
-      <polyline points="6 9 12 15 18 9"/>
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   );
 }
 
-export default function ChatPanel({ collapsed, onToggle }) {
-  const { messages, loading, bottomRef, draft, setDraft, sending, sendMessage } = useChatPanel();
+function CameraIcon({ size = 52 }) {
+  return (
+    <div style={{ width: size, height: size, borderRadius: "6px", backgroundColor: palette.gray.dark1, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      <svg width={size * 0.42} height={size * 0.42} viewBox="0 0 24 24" fill="none"
+        stroke={palette.gray.base} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+      >
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+        <circle cx="12" cy="13" r="4" />
+      </svg>
+    </div>
+  );
+}
+
+function PhotoThumb({ fileId, size = 52, style: extraStyle = {} }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <CameraIcon size={size} />;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`/api/files/${fileId}/thumb`}
+      alt="photo"
+      style={{ width: size, height: size, objectFit: "cover", borderRadius: "6px", flexShrink: 0, display: "block", ...extraStyle }}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+function DetailRow({ label, value, muted = false }) {
+  if (value == null) return null;
+  return (
+    <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+      <span style={{ color: palette.gray.dark1, fontSize: "11px", fontFamily: "monospace", minWidth: "68px", flexShrink: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+        {label}
+      </span>
+      <span style={{ color: muted ? palette.gray.dark1 : palette.gray.light2, fontSize: "11px", fontFamily: "monospace", wordBreak: "break-all" }}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function FileDetailModal({ file, onClose, onDelete }) {
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      await onDelete(file._id);
+      onClose();
+    } catch {
+      setDeleting(false);
+    }
+  }
+
+  const coord = (file.j != null && file.l != null)
+    ? `${file.j.toFixed(5)}, ${file.l.toFixed(5)}`
+    : null;
+
+  return createPortal(
+    <div
+      onClick={onClose}
+      style={{ position: "fixed", inset: 0, zIndex: 9999, backgroundColor: "rgba(0,0,0,0.72)", display: "flex", alignItems: "center", justifyContent: "center" }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ backgroundColor: palette.gray.dark3, border: `1px solid ${palette.gray.dark2}`, borderRadius: "8px", width: "340px", maxWidth: "90vw", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}
+      >
+        <div style={{ padding: "12px 16px", borderBottom: `1px solid ${palette.gray.dark2}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ color: palette.white, fontSize: "13px", fontWeight: 700, fontFamily: "monospace", letterSpacing: "0.05em" }}>
+            {file.e || "PHOTO"}
+          </span>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: palette.gray.base, padding: "2px", display: "flex", alignItems: "center", lineHeight: 1 }}>
+            <CloseIcon />
+          </button>
+        </div>
+        <div style={{ backgroundColor: "#0d1117", display: "flex", justifyContent: "center", alignItems: "center", padding: "16px" }}>
+          <PhotoThumb fileId={file._id} size={260} style={{ borderRadius: "6px", maxWidth: "100%", height: "auto" }} />
+        </div>
+        <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: "8px", borderTop: `1px solid ${palette.gray.dark2}` }}>
+          <DetailRow label="Callsign" value={file.e} />
+          <DetailRow label="File" value={file.c} />
+          <DetailRow label="Time" value={formatFileTime(file.b)} />
+          <DetailRow label="Size" value={formatSize(file.sz)} />
+          <DetailRow label="Location" value={coord ?? "marker removed"} muted={!coord} />
+        </div>
+        <div style={{ padding: "12px 16px", borderTop: `1px solid ${palette.gray.dark2}`, display: "flex", justifyContent: "flex-end", gap: "8px" }}>
+          <button
+            onClick={onClose}
+            disabled={deleting}
+            style={{ background: "none", border: `1px solid ${palette.gray.dark2}`, borderRadius: "4px", color: palette.gray.light1, fontSize: "12px", fontFamily: "monospace", padding: "5px 14px", cursor: "pointer" }}
+          >
+            Close
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={deleting}
+            style={{ background: "none", border: `1px solid ${palette.red.dark2}`, borderRadius: "4px", color: palette.red.base, fontSize: "12px", fontFamily: "monospace", padding: "5px 14px", cursor: deleting ? "default" : "pointer", opacity: deleting ? 0.5 : 1 }}
+          >
+            {deleting ? "Deleting…" : "Delete"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function FileCard({ file, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px", borderRadius: "6px", backgroundColor: palette.gray.dark2, cursor: "pointer", transition: "background-color 0.1s" }}
+      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = palette.gray.dark1}
+      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = palette.gray.dark2}
+    >
+      <PhotoThumb fileId={file._id} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ color: palette.white, fontWeight: 600, fontSize: "12px", fontFamily: "monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {file.e || "—"}
+        </div>
+        <div style={{ color: palette.gray.base, fontSize: "11px", fontFamily: "monospace", marginTop: "2px" }}>
+          {formatFileTime(file.b)}
+        </div>
+        {file.j == null && (
+          <div style={{ color: palette.gray.dark1, fontSize: "10px", fontFamily: "monospace", marginTop: "2px" }}>
+            marker removed
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function ChatPanel() {
+  const { messages, loading, bottomRef, draft, setDraft, sending, sendMessage, sendQuick } = useChatPanel();
+  const { files, loading: filesLoading, deleteFile } = useFilePanel();
+  const [activeTab, setActiveTab] = useState("CHAT");
+  const [selected, setSelected] = useState(null);
+
+  const cmdBtnStyle = (disabled) => ({
+    background: "none",
+    border: `1px solid ${palette.gray.dark1}`,
+    borderRadius: "4px",
+    color: disabled ? palette.gray.dark1 : palette.gray.light2,
+    fontSize: "10px",
+    fontFamily: "monospace",
+    fontWeight: 700,
+    letterSpacing: "0.06em",
+    padding: "7px 4px",
+    cursor: disabled ? "not-allowed" : "pointer",
+  });
 
   return (
     <div style={{ backgroundColor: palette.gray.dark3, border: `1px solid ${palette.gray.dark2}`, borderRadius: "6px", display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-      <div
-        onClick={onToggle}
-        style={{ padding: "10px 16px", borderBottom: collapsed ? "none" : `1px solid ${palette.gray.dark2}`, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", userSelect: "none" }}
-      >
-        <H3 style={{ color: palette.white, margin: 0, fontSize: "14px" }}>COMMS FEED</H3>
-        <Chevron open={!collapsed} />
+
+      {/* Command buttons 2×2 grid */}
+      <div style={{ padding: "8px 10px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px", borderBottom: `1px solid ${palette.gray.dark2}`, flexShrink: 0 }}>
+        {CMD_BUTTONS.map(({ label, msg }) => (
+          <button
+            key={label}
+            onClick={() => sendQuick(msg)}
+            disabled={sending}
+            style={cmdBtnStyle(sending)}
+            onMouseEnter={(e) => { if (!sending) { e.currentTarget.style.borderColor = "#22c55e"; e.currentTarget.style.color = "#22c55e"; } }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = palette.gray.dark1; e.currentTarget.style.color = sending ? palette.gray.dark1 : palette.gray.light2; }}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
-      {!collapsed && (
-        <>
-          <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: "10px" }}>
-            {loading && <Body style={{ color: palette.gray.base, fontSize: "13px" }}>Loading…</Body>}
-            {!loading && messages.length === 0 && <Body style={{ color: palette.gray.base, fontSize: "13px" }}>No messages yet.</Body>}
-            {messages.map((msg) => (
-              <div key={msg._id}>
-                <div style={{ display: "flex", gap: "8px", alignItems: "baseline" }}>
-                  <span style={{ color: palette.green.base, fontWeight: 700, fontSize: "12px", fontFamily: "monospace", flexShrink: 0 }}>
-                    {msg.e || msg.authorCallsign || "UNKNOWN"}
-                  </span>
-                  <span style={{ color: palette.gray.base, fontSize: "11px", fontFamily: "monospace" }}>
-                    {formatTime(msg.b)}
-                  </span>
-                </div>
-                <Body style={{ color: palette.gray.light2, fontSize: "13px", marginTop: "2px", lineHeight: "1.4" }}>
-                  {msg.msg || msg.message}
-                </Body>
-              </div>
-            ))}
-            <div ref={bottomRef} />
-          </div>
+      {/* Tab bar */}
+      <div style={{ display: "flex", borderBottom: `1px solid ${palette.gray.dark2}`, flexShrink: 0 }}>
+        {["CHAT", "FILES"].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{
+              flex: 1,
+              padding: "5px 0",
+              background: "none",
+              border: "none",
+              borderBottom: activeTab === tab ? "2px solid #22c55e" : "2px solid transparent",
+              color: activeTab === tab ? "#22c55e" : palette.gray.base,
+              fontSize: "10px",
+              fontFamily: "monospace",
+              fontWeight: activeTab === tab ? 700 : 400,
+              letterSpacing: "0.06em",
+              cursor: "pointer",
+            }}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
 
-          <div style={{ padding: "10px 12px", borderTop: `1px solid ${palette.gray.dark2}`, display: "flex", gap: "8px", flexShrink: 0 }}>
-            <input
-              type="text"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-              placeholder="Send message to ATAK…"
-              disabled={sending}
-              style={{ flex: 1, backgroundColor: palette.gray.dark2, border: `1px solid ${palette.gray.dark1}`, borderRadius: "4px", color: palette.white, fontSize: "13px", fontFamily: "monospace", padding: "6px 10px", outline: "none" }}
-            />
-            <Button size="small" variant="primary" onClick={sendMessage} disabled={!draft.trim() || sending} isLoading={sending}>
-              Send
-            </Button>
-          </div>
-        </>
+      {/* Tab content */}
+      {activeTab === "CHAT" && (
+        <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: "10px" }}>
+          {loading && <Body style={{ color: palette.gray.base, fontSize: "13px" }}>Loading…</Body>}
+          {!loading && messages.length === 0 && <Body style={{ color: palette.gray.base, fontSize: "13px" }}>No messages yet.</Body>}
+          {messages.map((msg) => (
+            <div key={msg._id}>
+              <div style={{ display: "flex", gap: "8px", alignItems: "baseline" }}>
+                <span style={{ color: palette.green.base, fontWeight: 700, fontSize: "12px", fontFamily: "monospace", flexShrink: 0 }}>
+                  {msg.e || msg.authorCallsign || "UNKNOWN"}
+                </span>
+                <span style={{ color: palette.gray.base, fontSize: "11px", fontFamily: "monospace" }}>
+                  {formatTime(msg.b)}
+                </span>
+              </div>
+              <Body style={{ color: palette.gray.light2, fontSize: "13px", marginTop: "2px", lineHeight: "1.4" }}>
+                {msg.msg || msg.message}
+              </Body>
+            </div>
+          ))}
+          <div ref={bottomRef} />
+        </div>
+      )}
+
+      {activeTab === "FILES" && (
+        <div style={{ flex: 1, overflowY: "auto", padding: "10px 12px", display: "flex", flexDirection: "column", gap: "8px" }}>
+          {filesLoading && <Body style={{ color: palette.gray.base, fontSize: "13px" }}>Loading…</Body>}
+          {!filesLoading && files.length === 0 && <Body style={{ color: palette.gray.base, fontSize: "13px" }}>No shared files.</Body>}
+          {files.map((file) => (
+            <FileCard key={file._id} file={file} onClick={() => setSelected(file)} />
+          ))}
+        </div>
+      )}
+
+      {/* Free-text input — CHAT tab only */}
+      {activeTab === "CHAT" && (
+        <div style={{ padding: "8px 12px", borderTop: `1px solid ${palette.gray.dark2}`, display: "flex", gap: "8px", flexShrink: 0 }}>
+          <input
+            type="text"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+            placeholder="Send message to ATAK…"
+            disabled={sending}
+            style={{ flex: 1, backgroundColor: palette.gray.dark2, border: `1px solid ${palette.gray.dark1}`, borderRadius: "4px", color: palette.white, fontSize: "13px", fontFamily: "monospace", padding: "6px 10px", outline: "none" }}
+          />
+          <Button size="small" variant="primary" onClick={sendMessage} disabled={!draft.trim() || sending} isLoading={sending}>
+            Send
+          </Button>
+        </div>
+      )}
+
+      {selected && (
+        <FileDetailModal
+          file={selected}
+          onClose={() => setSelected(null)}
+          onDelete={deleteFile}
+        />
       )}
     </div>
   );

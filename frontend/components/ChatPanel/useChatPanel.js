@@ -39,5 +39,20 @@ export function useChatPanel() {
     }
   }, [draft, sending]);
 
-  return { messages: messages || [], loading, bottomRef, draft, setDraft, sending, sendMessage };
+  const sendQuick = useCallback(async (text) => {
+    if (!text || sending) return;
+    setSending(true);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ msg: text }),
+      });
+      if (!res.ok) throw new Error("Failed to send message");
+    } finally {
+      setSending(false);
+    }
+  }, [sending]);
+
+  return { messages: messages || [], loading, bottomRef, draft, setDraft, sending, sendMessage, sendQuick };
 }

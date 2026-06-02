@@ -7,6 +7,9 @@ envSecrets:
   DATABASE_NAME: tak-situational-demo
   DITTO_URL_EP: tak-situational-demo
   DITTO_API_KEY: tak-situational-demo
+  LLM_API_KEY: tak-situational-demo
+  LLM_BASE_URL: tak-situational-demo
+  LLM_MODEL: tak-situational-demo
 
 sidecarContainers:
   - name: backend
@@ -32,6 +35,21 @@ sidecarContainers:
           secretKeyRef:
             name: tak-situational-demo
             key: DITTO_API_KEY
+      - name: LLM_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: LLM_API_KEY
+      - name: LLM_BASE_URL
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: LLM_BASE_URL
+      - name: LLM_MODEL
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: LLM_MODEL
 
 serviceAccount:
   enabled: true

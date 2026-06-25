@@ -226,8 +226,11 @@ frontend/npm-debug.log*
 frontend/yarn-debug.log*
 frontend/yarn-error.log*
 
-# Environment files
+# Environment files — never commit any frontend env file (secrets live in .env.local)
 frontend/.env*
+
+# macOS
+.DS_Store
 
 # Vercel
 frontend/.vercel

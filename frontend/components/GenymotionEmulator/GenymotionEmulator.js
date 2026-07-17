@@ -44,7 +44,16 @@ const STATUS = {
 const POLL_MS = 5000;
 const MAX_POLLS = 48; // ~4 min ceiling waiting for ONLINE
 
-export default function GenymotionEmulator({ label = "device", autoStart = false, onReady }) {
+export default function GenymotionEmulator({
+  label = "device",
+  recipe,          // per-device recipe UUID (falls back to server env if omitted)
+  size,            // { width, height } — defaults to 640×360
+  autoStart = false,
+  startSignal = 0, // increment from a parent to boot this device (e.g. "Start Simulation")
+  onReady,
+}) {
+  const W = size?.width ?? 640;
+  const H = size?.height ?? 360;
   const containerRef = useRef(null);
   const rendererRef = useRef(null);
   const instanceRef = useRef(null); // running instance UUID (for stop)
@@ -112,7 +121,7 @@ export default function GenymotionEmulator({ label = "device", autoStart = false
       const res = await fetch("/api/genymotion/device", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: `atak-${label}` }),
+        body: JSON.stringify({ name: `atak-${label}`, recipe }),
       });
       const data = await res.json();
       if (!res.ok || !data.instanceUuid) {
@@ -156,7 +165,15 @@ export default function GenymotionEmulator({ label = "device", autoStart = false
       setMsg(String(e?.message ?? e));
       setBoth("error");
     }
-  }, [label, connect]);
+  }, [label, recipe, connect]);
+
+  // External boot trigger: a parent increments `startSignal` to launch this device
+  // (e.g. a single "Start Simulation" button starting both). start() self-guards
+  // against double-starts, so this is safe.
+  useEffect(() => {
+    if (startSignal > 0) start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startSignal]);
 
   // Auto-start (off by default to stay cost-safe and avoid dev StrictMode double-starts).
   useEffect(() => {
@@ -227,8 +244,8 @@ export default function GenymotionEmulator({ label = "device", autoStart = false
 
       <div style={{
         position: "relative",
-        width: 640,
-        height: 360,
+        width: W,
+        height: H,
         backgroundColor: "#000",
         borderRadius: 12,
         overflow: "hidden",

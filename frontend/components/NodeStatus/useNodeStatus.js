@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { usePolling } from "@/lib/hooks/usePolling";
 import { isStale } from "@/components/Map/useMap";
+import { filterByCallsign } from "@/lib/filterByCallsign";
 
 const SENTINEL = 9999999;
 
@@ -25,7 +26,7 @@ function parseGroup(xml) {
   return { team: nameM?.[1] ?? null, role: roleM?.[1] ?? null };
 }
 
-export function useNodeStatus() {
+export function useNodeStatus(callsigns) {
   const fetchTracks = useCallback(async () => {
     const res = await fetch("/api/tracks");
     if (!res.ok) throw new Error("Failed to fetch tracks");
@@ -51,7 +52,7 @@ export function useNodeStatus() {
   const alertList = Array.isArray(alerts) ? alerts : [];
   const telemList = Array.isArray(telemetry) ? telemetry : [];
 
-  const nodes = (tracks || []).map((t) => {
+  const nodes = filterByCallsign(tracks, callsigns).map((t) => {
     const group = parseGroup(t.r);
     const callsign = t.c || t.e || t._id;
     const nodeAlert = alertList.find((a) => (a.c || a.e) === callsign) ?? null;

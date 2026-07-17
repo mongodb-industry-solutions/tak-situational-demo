@@ -16,18 +16,23 @@ const fail = (error, status, extra = {}) => NextResponse.json({ error, ...extra 
 
 export async function POST(request) {
   if (!API_TOKEN) return fail("GENYMOTION_API_TOKEN not set", 500);
-  if (!RECIPE_UUID) return fail("GENYMOTION_RECIPE_UUID not set", 500);
 
   let name = "atak-device";
+  let recipe = null;
   try {
     const body = await request.json();
     if (body?.name) name = body.name;
+    if (body?.recipe) recipe = body.recipe;
   } catch {
     /* no body is fine */
   }
+  // Per-device recipe: each sim device boots from its own recipe so it gets a unique
+  // CoT UID + callsign. Falls back to the single env recipe (used by /genymotion).
+  const recipeUuid = recipe || RECIPE_UUID;
+  if (!recipeUuid) return fail("no recipe — set GENYMOTION_RECIPE_UUID or pass { recipe }", 500);
 
   try {
-    const res = await fetch(`${API_BASE}/recipes/${RECIPE_UUID}/start-disposable`, {
+    const res = await fetch(`${API_BASE}/recipes/${recipeUuid}/start-disposable`, {
       method: "POST",
       headers: authHeaders(),
       body: JSON.stringify({ instance_name: name, rename_on_conflict: true, timeouts: {} }),

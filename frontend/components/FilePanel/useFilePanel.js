@@ -2,8 +2,9 @@
 
 import { useCallback } from "react";
 import { usePolling } from "@/lib/hooks/usePolling";
+import { filterByCallsign } from "@/lib/filterByCallsign";
 
-export function useFilePanel() {
+export function useFilePanel(callsigns) {
   const fetchFiles = useCallback(async () => {
     const res = await fetch("/api/files");
     if (!res.ok) throw new Error("Failed to fetch files");
@@ -18,5 +19,5 @@ export function useFilePanel() {
     refresh();
   }, [refresh]);
 
-  return { files: files || [], loading, deleteFile };
+  return { files: filterByCallsign(files, callsigns), loading, deleteFile };
 }

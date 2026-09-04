@@ -32,9 +32,7 @@ export function sendGps(renderer, lat, lng, opts = {}) {
 
 export default function GpsControl({ label, renderer, preset }) {
   const active = !!renderer;
-  const [pos, setPos] = useState({ lat: preset.lat, lng: preset.lng });
   const [moving, setMoving] = useState(false);
-  const [status, setStatus] = useState(null);
   const moveRef = useRef(null);
   const walkRef = useRef({ lat: preset.lat, lng: preset.lng, bearing: 45 });
 
@@ -46,10 +44,8 @@ export default function GpsControl({ label, renderer, preset }) {
 
   const placeAt = useCallback((lat, lng) => {
     walkRef.current = { lat, lng, bearing: walkRef.current.bearing };
-    setPos({ lat, lng });
     // stationary placement → speed 0 (no course; marker stays put)
-    const ok = sendGps(renderer, lat.toFixed(6), lng.toFixed(6), { accuracy: 5, speed: 0 });
-    setStatus(ok ? `placed ${lat.toFixed(4)}, ${lng.toFixed(4)}` : "no active device");
+    sendGps(renderer, lat.toFixed(6), lng.toFixed(6), { accuracy: 5, speed: 0 });
   }, [renderer]);
 
   // Drop the device onto its preset as soon as it connects, so ATAK gets a fix and
@@ -64,7 +60,7 @@ export default function GpsControl({ label, renderer, preset }) {
 
   const toggleMove = useCallback(() => {
     if (moveRef.current) { stopMoving(); return; }
-    if (!renderer) { setStatus("no active device"); return; }
+    if (!renderer) return;
     setMoving(true);
     moveRef.current = setInterval(() => {
       const s = walkRef.current;
@@ -74,7 +70,6 @@ export default function GpsControl({ label, renderer, preset }) {
       s.bearing = (s.bearing + (Math.random() - 0.5) * 30 + 360) % 360; // gentle wander
       // speed > 0 + bearing → ATAK treats it as travel and rotates the self-marker to course
       sendGps(renderer, s.lat.toFixed(6), s.lng.toFixed(6), { bearing: Math.round(s.bearing), speed: 12, accuracy: 5 });
-      setPos({ lat: s.lat, lng: s.lng });
     }, 2000);
   }, [renderer, stopMoving]);
 
@@ -83,22 +78,19 @@ export default function GpsControl({ label, renderer, preset }) {
       backgroundColor: palette.gray.dark3,
       border: `1px solid ${palette.gray.dark2}`,
       borderRadius: 8,
-      padding: "12px 14px",
+      padding: "8px 10px",
       display: "flex",
       flexDirection: "column",
-      gap: 10,
+      gap: 6,
       opacity: active ? 1 : 0.5,
     }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ color: palette.gray.light1, fontFamily: "monospace", fontSize: 11, fontWeight: 700 }}>
-          {label} — GPS / MOVEMENT
+      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+        <span style={{ color: palette.gray.light1, fontFamily: "monospace", fontSize: 10, fontWeight: 700 }}>
+          {label} GPS
         </span>
         <span style={{ color: active ? "#22c55e" : palette.gray.dark1, fontFamily: "monospace", fontSize: 10 }}>
-          {active ? "● live" : "○ offline"}
+          {active ? "●" : "○"}
         </span>
-      </div>
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
         {GPS_PRESETS.map((p) => (
           <button
             key={p.label}
@@ -131,19 +123,13 @@ export default function GpsControl({ label, renderer, preset }) {
           fontFamily: "monospace",
           fontSize: 11,
           fontWeight: 700,
-          padding: "5px 12px",
+          padding: "4px 12px",
           cursor: active ? "pointer" : "not-allowed",
           letterSpacing: "0.05em",
         }}
       >
         {moving ? "■ STOP MOVEMENT" : "▶ SIMULATE MOVEMENT"}
       </button>
-
-      <span style={{ color: palette.gray.base, fontFamily: "monospace", fontSize: 10 }}>
-        {active
-          ? `pos ${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)}${status ? ` · ${status}` : ""}`
-          : "Start the device to enable GPS injection."}
-      </span>
     </div>
   );
 }

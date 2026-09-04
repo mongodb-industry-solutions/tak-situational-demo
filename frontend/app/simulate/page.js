@@ -24,8 +24,6 @@ const RECIPE_BRAVO = process.env.NEXT_PUBLIC_GENYMOTION_RECIPE_BRAVO;
 // pull in historical COMMAND test data and break the "just the 2 devices" view.)
 const SIM_CALLSIGNS = ["ALPHA", "BRAVO"];
 
-const DEVICE_SIZE = { width: 480, height: 270 };
-
 // Both devices start in the same AO (a few km apart) so they read as one team.
 const ALPHA_START = GPS_PRESETS[0]; // Camp Pendleton
 const BRAVO_START = { label: GPS_PRESETS[0].label, lat: GPS_PRESETS[0].lat + 0.012, lng: GPS_PRESETS[0].lng + 0.014 };
@@ -33,19 +31,10 @@ const BRAVO_START = { label: GPS_PRESETS[0].label, lat: GPS_PRESETS[0].lat + 0.0
 function DeviceSkeleton() {
   return (
     <div style={{
-      width: DEVICE_SIZE.width, height: DEVICE_SIZE.height, backgroundColor: "#1a1a1a", borderRadius: 12,
+      flex: 1, minHeight: 0, backgroundColor: "#1a1a1a", borderRadius: 12,
       display: "flex", alignItems: "center", justifyContent: "center",
     }}>
       <span style={{ color: palette.gray.dark1, fontFamily: "monospace", fontSize: 11 }}>Loading…</span>
-    </div>
-  );
-}
-
-function DeviceLabel({ name }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <span style={{ color: palette.white, fontFamily: "monospace", fontSize: 13, fontWeight: 700 }}>{name}</span>
-      <span style={{ color: palette.gray.base, fontFamily: "monospace", fontSize: 10 }}>ATAK CIV · Android 15</span>
     </div>
   );
 }
@@ -59,30 +48,32 @@ export default function SimulatePage() {
     <main style={{ backgroundColor: "#0d1117", height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <NavBar />
 
-      <div style={{ flex: 1, minHeight: 0, display: "flex", padding: "12px", gap: "12px", overflow: "hidden" }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", padding: "12px", gap: "16px", overflow: "hidden" }}>
 
-        {/* LEFT — 2 stacked field devices + controls */}
-        <div style={{ width: 500, flexShrink: 0, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
+        {/* LEFT — simulated field devices. A border is the only division from the
+            command center on the right; the header above already states the split. */}
+        <div style={{
+          width: 620, flexShrink: 0, display: "flex", flexDirection: "column", gap: 12,
+          minHeight: 0, paddingRight: 16, borderRight: `1px solid ${palette.gray.dark2}`,
+        }}>
           <button
             onClick={() => setStartSignal((s) => s + 1)}
             style={{
               backgroundColor: "#166534", border: "1px solid #22c55e", borderRadius: 6, color: palette.white,
               fontFamily: "monospace", fontSize: 13, fontWeight: 700, padding: "8px 12px", cursor: "pointer",
-              letterSpacing: "0.05em",
+              letterSpacing: "0.05em", flexShrink: 0,
             }}
           >
             ▶ START SIMULATION
           </button>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <DeviceLabel name="FIELD DEVICE — ALPHA" />
-            <GenymotionEmulator label="alpha" recipe={RECIPE_ALPHA} size={DEVICE_SIZE} startSignal={startSignal} onReady={setRendererA} />
+          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+            <GenymotionEmulator label="alpha" title="FIELD DEVICE — ALPHA" recipe={RECIPE_ALPHA} fluid startSignal={startSignal} onReady={setRendererA} />
             <GpsControl label="ALPHA" renderer={rendererA} preset={ALPHA_START} />
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <DeviceLabel name="FIELD DEVICE — BRAVO" />
-            <GenymotionEmulator label="bravo" recipe={RECIPE_BRAVO} size={DEVICE_SIZE} startSignal={startSignal} onReady={setRendererB} />
+          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+            <GenymotionEmulator label="bravo" title="FIELD DEVICE — BRAVO" recipe={RECIPE_BRAVO} fluid startSignal={startSignal} onReady={setRendererB} />
             <GpsControl label="BRAVO" renderer={rendererB} preset={BRAVO_START} />
           </div>
         </div>

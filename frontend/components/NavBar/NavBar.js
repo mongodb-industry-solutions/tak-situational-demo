@@ -40,16 +40,24 @@ export default function NavBar() {
         >
           TAK Situational Demo
         </span>
-        <span
-          style={{
-            color: palette.gray.base,
-            fontFamily: "var(--font-geist-sans, sans-serif)",
-            fontWeight: 400,
-            fontSize: "13px",
-          }}
-        >
-          Command Vehicle View
-        </span>
+        {onSimulate ? (
+          <span style={{ display: "flex", alignItems: "center", gap: "8px", fontFamily: "var(--font-geist-sans, sans-serif)", fontSize: "13px" }}>
+            <span style={{ color: palette.gray.light1, fontWeight: 600 }}>Field Devices</span>
+            <span style={{ color: palette.gray.dark1 }}>|</span>
+            <span style={{ color: palette.gray.base, fontWeight: 400 }}>Command Vehicle View</span>
+          </span>
+        ) : (
+          <span
+            style={{
+              color: palette.gray.base,
+              fontFamily: "var(--font-geist-sans, sans-serif)",
+              fontWeight: 400,
+              fontSize: "13px",
+            }}
+          >
+            Command Vehicle View
+          </span>
+        )}
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>

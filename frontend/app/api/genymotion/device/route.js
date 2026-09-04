@@ -1,22 +1,48 @@
 import { NextResponse } from "next/server";
 
-// Server-side lifecycle for Genymotion SaaS "disposable" instances. The API token is a
-// powerful secret and stays here; the browser only ever receives an instance UUID, a
-// boot state, and (once ONLINE) a short instance-scoped player token + WebRTC address.
+// Server-side lifecycle for Genymotion devices. Two providers:
+//   - "saas"  Genymotion Cloud disposable instances (api.geny.io) — the original path.
+//   - "paas"  Self-hosted Genymotion PaaS EC2 instances — always-on, one instance per
+//            device label (alpha/bravo/...), no start/stop lifecycle.
+// Whatever secrets exist (API token, PaaS instance token) stay server-side; the browser
+// only ever receives an instance/device id, a state, and (once ONLINE) the WebRTC
+// signalling address + player token.
 //
-//   POST   /api/genymotion/device            → start a disposable instance from the recipe
-//   GET    /api/genymotion/device?instance=  → boot state; when ONLINE also { webrtcAddress, token }
-//   DELETE /api/genymotion/device?instance=  → stop (auto-destroys the disposable instance)
+//   POST   /api/genymotion/device            → start (SaaS) / resolve (PaaS) a device
+//   GET    /api/genymotion/device?instance=  → state; when ONLINE also { webrtcAddress, token }
+//   DELETE /api/genymotion/device?instance=  → stop (SaaS destroys it; PaaS is a no-op — the
+//                                              box stays up, only the player disconnects)
+const PROVIDER = (process.env.GENYMOTION_PROVIDER || "saas").toLowerCase();
+
 const API_BASE = process.env.GENYMOTION_API_BASE || "https://api.geny.io/cloud/v1";
 const API_TOKEN = process.env.GENYMOTION_API_TOKEN;
 const RECIPE_UUID = process.env.GENYMOTION_RECIPE_UUID;
 
+// PaaS device registry — one long-running EC2 instance per label. The WebSocket
+// signalling endpoint on these boxes is NOT behind the console's Basic Auth (verified
+// 2026-09-04: a bare WS upgrade to wss://<host>/ with zero credentials returns a clean
+// 101 Switching Protocols). Auth is the in-band `{type:"token", token}` message the
+// player sends after connecting, and the value the console itself uses for that token
+// is simply the EC2 instance id — so that's what we hand the browser too.
+const PAAS_DEVICES = {
+  alpha: {
+    host: process.env.GENYMOTION_PAAS_HOST_ALPHA,
+    token: process.env.GENYMOTION_PAAS_TOKEN_ALPHA,
+  },
+  bravo: {
+    host: process.env.GENYMOTION_PAAS_HOST_BRAVO,
+    token: process.env.GENYMOTION_PAAS_TOKEN_BRAVO,
+  },
+};
+
 const authHeaders = () => ({ "x-api-token": API_TOKEN, "Content-Type": "application/json" });
 const fail = (error, status, extra = {}) => NextResponse.json({ error, ...extra }, { status });
 
-export async function POST(request) {
-  if (!API_TOKEN) return fail("GENYMOTION_API_TOKEN not set", 500);
+function paasDevice(label) {
+  return PAAS_DEVICES[(label || "").toLowerCase()] || null;
+}
 
+export async function POST(request) {
   let name = "atak-device";
   let recipe = null;
   try {
@@ -26,6 +52,23 @@ export async function POST(request) {
   } catch {
     /* no body is fine */
   }
+
+  if (PROVIDER === "paas") {
+    // GenymotionEmulator posts `name: atak-${label}` — label is the device key (alpha/bravo).
+    const label = name.replace(/^atak-/, "");
+    const device = paasDevice(label);
+    if (!device?.host || !device?.token) {
+      return fail(
+        `no PaaS device configured for "${label}" — set GENYMOTION_PAAS_HOST_${label.toUpperCase()} / GENYMOTION_PAAS_TOKEN_${label.toUpperCase()}`,
+        500
+      );
+    }
+    // Always-on box: no boot to wait for. The label doubles as the "instance id" the
+    // browser polls with next.
+    return NextResponse.json({ instanceUuid: label, state: "ONLINE" });
+  }
+
+  if (!API_TOKEN) return fail("GENYMOTION_API_TOKEN not set", 500);
   // Per-device recipe: each sim device boots from its own recipe so it gets a unique
   // CoT UID + callsign. Falls back to the single env recipe (used by /genymotion).
   const recipeUuid = recipe || RECIPE_UUID;
@@ -55,9 +98,23 @@ export async function POST(request) {
 }
 
 export async function GET(request) {
-  if (!API_TOKEN) return fail("GENYMOTION_API_TOKEN not set", 500);
   const instance = new URL(request.url).searchParams.get("instance");
   if (!instance) return fail("instance query param required", 400);
+
+  if (PROVIDER === "paas") {
+    // For PaaS, `instance` is the device label returned by POST above.
+    const device = paasDevice(instance);
+    if (!device?.host || !device?.token) {
+      return fail(`no PaaS device configured for "${instance}"`, 500);
+    }
+    return NextResponse.json({
+      state: "ONLINE",
+      webrtcAddress: `wss://${device.host}`,
+      token: device.token,
+    });
+  }
+
+  if (!API_TOKEN) return fail("GENYMOTION_API_TOKEN not set", 500);
 
   try {
     const res = await fetch(`${API_BASE}/instances/${instance}`, {
@@ -91,9 +148,16 @@ export async function GET(request) {
 }
 
 export async function DELETE(request) {
-  if (!API_TOKEN) return fail("GENYMOTION_API_TOKEN not set", 500);
   const instance = new URL(request.url).searchParams.get("instance");
   if (!instance) return fail("instance query param required", 400);
+
+  if (PROVIDER === "paas") {
+    // Always-on box — never tear it down from the dashboard. The player-side
+    // disconnect already happened client-side; just acknowledge.
+    return NextResponse.json({ ok: true, state: "STOPPED" });
+  }
+
+  if (!API_TOKEN) return fail("GENYMOTION_API_TOKEN not set", 500);
 
   try {
     const res = await fetch(`${API_BASE}/instances/${instance}/stop-disposable`, {

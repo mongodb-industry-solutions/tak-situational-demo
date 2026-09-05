@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePolling } from "@/lib/hooks/usePolling";
+import { filterByCallsign } from "@/lib/filterByCallsign";
 
-export function useChatPanel() {
+export function useChatPanel(callsigns) {
   const bottomRef = useRef(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -54,5 +55,5 @@ export function useChatPanel() {
     }
   }, [sending]);
 
-  return { messages: messages || [], loading, bottomRef, draft, setDraft, sending, sendMessage, sendQuick };
+  return { messages: filterByCallsign(messages, callsigns), loading, bottomRef, draft, setDraft, sending, sendMessage, sendQuick };
 }

@@ -205,8 +205,8 @@ function NodeCard({ node }) {
   );
 }
 
-export default function NodeStatus() {
-  const { nodes, loading } = useNodeStatus();
+export default function NodeStatus({ callsigns }) {
+  const { nodes, loading } = useNodeStatus(callsigns);
 
   return (
     <div style={{ backgroundColor: palette.gray.dark3, border: `1px solid ${palette.gray.dark2}`, borderRadius: "6px", display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>

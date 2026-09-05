@@ -313,6 +313,7 @@ export default function MapInner({ tracks, mapitems, alerts, photoFiles, isStale
   const [prefix, setPrefix] = useState("COMMAND");
   const [counter, setCounter] = useState(1);
   const [placing, setPlacing] = useState(false);
+  const [cartoApiKey, setCartoApiKey] = useState(null);
 
   useEffect(() => {
     return () => {
@@ -320,6 +321,21 @@ export default function MapInner({ tracks, mapitems, alerts, photoFiles, isStale
         mapRef.current.remove();
         mapRef.current = null;
       }
+    };
+  }, []);
+
+  // The key is server-only (no NEXT_PUBLIC_ prefix) — fetch it at runtime rather than
+  // baking it into the client bundle at build time. See app/api/maptiles/config.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/maptiles/config")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && data?.key) setCartoApiKey(data.key);
+      })
+      .catch((e) => console.warn("[map] failed to load basemap config:", e));
+    return () => {
+      cancelled = true;
     };
   }, []);
 
@@ -351,12 +367,14 @@ export default function MapInner({ tracks, mapitems, alerts, photoFiles, isStale
         zoom={14}
         style={{ width: "100%", height: "100%" }}
       >
-        <TileLayer
-          attribution='&copy; <a href="https://carto.com/">CartoDB</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          subdomains="abcd"
-          maxZoom={20}
-        />
+        {cartoApiKey && (
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            url={`https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${cartoApiKey}`}
+            subdomains="abcd"
+            maxZoom={20}
+          />
+        )}
         <CursorManager mode={mapMode} placing={placing} />
 
         {tracks.map((track) => {

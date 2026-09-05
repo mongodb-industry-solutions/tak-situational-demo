@@ -15,9 +15,6 @@ const GenymotionEmulator = dynamic(
   { ssr: false, loading: () => <DeviceSkeleton /> }
 );
 
-const RECIPE_ALPHA = process.env.NEXT_PUBLIC_GENYMOTION_RECIPE_ALPHA;
-const RECIPE_BRAVO = process.env.NEXT_PUBLIC_GENYMOTION_RECIPE_BRAVO;
-
 // The clean command center shows ONLY the 2 field devices. ALPHA/BRAVO are fresh
 // callsigns with no history, so nodes/chat/markers start empty and fill only with
 // sim activity. (Command-originated chat/markers are intentionally excluded — they'd
@@ -68,12 +65,12 @@ export default function SimulatePage() {
           </button>
 
           <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-            <GenymotionEmulator label="alpha" title="FIELD DEVICE — ALPHA" recipe={RECIPE_ALPHA} fluid startSignal={startSignal} onReady={setRendererA} />
+            <GenymotionEmulator label="alpha" title="FIELD DEVICE — ALPHA" fluid startSignal={startSignal} onReady={setRendererA} />
             <GpsControl label="ALPHA" renderer={rendererA} preset={ALPHA_START} />
           </div>
 
           <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-            <GenymotionEmulator label="bravo" title="FIELD DEVICE — BRAVO" recipe={RECIPE_BRAVO} fluid startSignal={startSignal} onReady={setRendererB} />
+            <GenymotionEmulator label="bravo" title="FIELD DEVICE — BRAVO" fluid startSignal={startSignal} onReady={setRendererB} />
             <GpsControl label="BRAVO" renderer={rendererB} preset={BRAVO_START} />
           </div>
         </div>

@@ -12,6 +12,10 @@ envSecrets:
   LLM_API_KEY: tak-situational-demo
   LLM_BASE_URL: tak-situational-demo
   LLM_MODEL: tak-situational-demo
+  GENYMOTION_PAAS_HOST_ALPHA: tak-situational-demo
+  GENYMOTION_PAAS_TOKEN_ALPHA: tak-situational-demo
+  GENYMOTION_PAAS_HOST_BRAVO: tak-situational-demo
+  GENYMOTION_PAAS_TOKEN_BRAVO: tak-situational-demo
 
 sidecarContainers:
   - name: backend
@@ -52,6 +56,28 @@ sidecarContainers:
           secretKeyRef:
             name: tak-situational-demo
             key: LLM_MODEL
+      - name: GENYMOTION_PAAS_HOST_ALPHA
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: GENYMOTION_PAAS_HOST_ALPHA
+      - name: GENYMOTION_PAAS_TOKEN_ALPHA
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: GENYMOTION_PAAS_TOKEN_ALPHA
+      - name: GENYMOTION_PAAS_HOST_BRAVO
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: GENYMOTION_PAAS_HOST_BRAVO
+            optional: true
+      - name: GENYMOTION_PAAS_TOKEN_BRAVO
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: GENYMOTION_PAAS_TOKEN_BRAVO
+            optional: true
 
 ## AWS IRSA
 serviceAccount:

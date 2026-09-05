@@ -47,7 +47,6 @@ const MAX_POLLS = 48; // ~4 min ceiling waiting for ONLINE
 export default function GenymotionEmulator({
   label = "device",
   title,           // optional display name shown in the status row (e.g. "FIELD DEVICE — ALPHA")
-  recipe,          // per-device recipe UUID (falls back to server env if omitted)
   size,            // { width, height } — defaults to 640×360. Ignored when `fluid` is set.
   fluid = false,   // fill the parent flex box instead of a fixed pixel size — the parent
                    // controls how much room this device gets (e.g. an equal flex share).
@@ -92,12 +91,12 @@ export default function GenymotionEmulator({
     setRatio(null);
     teardownPlayer();
     onReady?.(null); // tell the page the renderer is gone
-    const uuid = instanceRef.current;
+    const running = instanceRef.current;
     instanceRef.current = null;
-    if (uuid) {
+    if (running) {
       setBoth("stopping");
       try {
-        await fetch(`/api/genymotion/device?instance=${uuid}`, { method: "DELETE", keepalive: true });
+        await fetch(`/api/genymotion/device?label=${running}`, { method: "DELETE", keepalive: true });
       } catch (e) {
         console.warn(`[Genymotion:${label}] stop failed:`, e);
       }
@@ -183,16 +182,16 @@ export default function GenymotionEmulator({
       const res = await fetch("/api/genymotion/device", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: `atak-${label}`, recipe }),
+        body: JSON.stringify({ label }),
       });
       const data = await res.json();
-      if (!res.ok || !data.instanceUuid) {
+      if (!res.ok || !data.label) {
         console.error(`[Genymotion:${label}] start failed:`, data);
         setMsg(data?.error || "start failed (see console _raw)");
         setBoth("error");
         return;
       }
-      instanceRef.current = data.instanceUuid;
+      instanceRef.current = data.label;
       setBoth("booting");
 
       let attempts = 0;
@@ -204,7 +203,7 @@ export default function GenymotionEmulator({
           return;
         }
         try {
-          const r = await fetch(`/api/genymotion/device?instance=${instanceRef.current}`);
+          const r = await fetch(`/api/genymotion/device?label=${instanceRef.current}`);
           const d = await r.json();
           if (d.state === "ONLINE" && d.webrtcAddress && d.token) {
             clearInterval(pollRef.current);
@@ -227,7 +226,7 @@ export default function GenymotionEmulator({
       setMsg(String(e?.message ?? e));
       setBoth("error");
     }
-  }, [label, recipe, connect]);
+  }, [label, connect]);
 
   // External boot trigger: a parent increments `startSignal` to launch this device
   // (e.g. a single "Start Simulation" button starting both). start() self-guards
@@ -243,7 +242,7 @@ export default function GenymotionEmulator({
     // Best-effort stop if the tab is closed while a device is running.
     const onUnload = () => {
       if (instanceRef.current) {
-        fetch(`/api/genymotion/device?instance=${instanceRef.current}`, {
+        fetch(`/api/genymotion/device?label=${instanceRef.current}`, {
           method: "DELETE",
           keepalive: true,
         }).catch(() => {});
@@ -257,7 +256,7 @@ export default function GenymotionEmulator({
       teardownPlayer();
       if (instanceRef.current) {
         // keepalive lets this DELETE complete after unmount/navigation
-        fetch(`/api/genymotion/device?instance=${instanceRef.current}`, {
+        fetch(`/api/genymotion/device?label=${instanceRef.current}`, {
           method: "DELETE",
           keepalive: true,
         }).catch(() => {});

@@ -12,6 +12,7 @@ envSecrets:
   LLM_API_KEY: tak-situational-demo
   LLM_BASE_URL: tak-situational-demo
   LLM_MODEL: tak-situational-demo
+  CARTO_API_KEY: tak-situational-demo # Read by the frontend (Next.js API route) only
   GENYMOTION_PAAS_HOST_ALPHA: tak-situational-demo
   GENYMOTION_PAAS_TOKEN_ALPHA: tak-situational-demo
   GENYMOTION_PAAS_HOST_BRAVO: tak-situational-demo

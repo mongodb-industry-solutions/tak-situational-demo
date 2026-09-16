@@ -244,6 +244,13 @@ frontend/next-env.d.ts
 # Misc
 *.pem
 
+# Local-only docker compose override (mounts host ~/.aws for local S3 testing)
+docker-compose.override.yml
+
+# AWS credentials / config (never commit; IRSA or local SSO profile instead)
+~/.aws
+.aws
+
 # MCP config (personal/local tooling)
 .mcp.json
 .playwright-mcp/

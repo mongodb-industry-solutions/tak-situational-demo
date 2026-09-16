@@ -367,12 +367,20 @@ export default function MapInner({ tracks, mapitems, alerts, photoFiles, isStale
         zoom={14}
         style={{ width: "100%", height: "100%" }}
       >
-        {cartoApiKey && (
+        {cartoApiKey ? (
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            url={`https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${cartoApiKey}`}
+            url={`https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=${encodeURIComponent(cartoApiKey)}`}
             subdomains="abcd"
             maxZoom={20}
+          />
+        ) : (
+          // Fallback basemap when CARTO_API_KEY isn't configured (e.g. a fresh local
+          // clone that only copied backend/.env). Without this the map rendered blank.
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            maxZoom={19}
           />
         )}
         <CursorManager mode={mapMode} placing={placing} />

@@ -56,4 +56,5 @@ async def device_state(label: str):
 
 @router.delete("/genymotion/device")
 async def stop_device(label: str):
+    _device(label)  # validate — consistent with POST/GET; unknown label is a misconfig
     return {"ok": True, "state": "STOPPED"}

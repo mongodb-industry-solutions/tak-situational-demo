@@ -5,8 +5,13 @@ import { palette } from "@leafygreen-ui/palette";
 
 // CDN load of the Genymotion device-web-player (CSS + JS), shared across instances so
 // the script is injected once. If the CDN path/global differs, this is the spot to fix.
-const PLAYER_CSS = "https://cdn.jsdelivr.net/npm/@genymotion/device-web-player/dist/css/device-renderer.min.css";
-const PLAYER_JS = "https://cdn.jsdelivr.net/npm/@genymotion/device-web-player/dist/js/device-renderer.min.js";
+// Pin an exact version + SRI integrity so a future package/CDN change or supply-chain
+// compromise can't execute arbitrary code in the dashboard.
+const PLAYER_VERSION = "4.3.1";
+const PLAYER_CSS = `https://cdn.jsdelivr.net/npm/@genymotion/device-web-player@${PLAYER_VERSION}/dist/css/device-renderer.min.css`;
+const PLAYER_CSS_INTEGRITY = "sha384-YMmZtr76B8nC8JAE7VX2mRXoLgHI4X0TOX1aO9ocGNYzWIfpCEvy5ez9cxn+hGH";
+const PLAYER_JS = `https://cdn.jsdelivr.net/npm/@genymotion/device-web-player@${PLAYER_VERSION}/dist/js/device-renderer.min.js`;
+const PLAYER_JS_INTEGRITY = "sha384-c4BKcz5JHxFOEo7+NnufTsouFF7DOVUowYvo2IVXge2BnnnSZpLohzmzT41jaMU/";
 
 let _playerReady = null;
 function ensurePlayer() {
@@ -19,13 +24,29 @@ function ensurePlayer() {
     const css = document.createElement("link");
     css.rel = "stylesheet";
     css.href = PLAYER_CSS;
+    css.integrity = PLAYER_CSS_INTEGRITY;
+    css.crossOrigin = "anonymous";
     document.head.appendChild(css);
 
     const script = document.createElement("script");
     script.src = PLAYER_JS;
+    script.integrity = PLAYER_JS_INTEGRITY;
+    script.crossOrigin = "anonymous";
     script.async = true;
-    script.onload = resolve;
-    script.onerror = () => reject(new Error("failed to load device-web-player from CDN"));
+    // Verify the bundle actually set the global — loading the file is not enough.
+    // If the CDN path changes, or it loads but fails to attach the global, reject
+    // explicitly instead of letting connect() crash on an undefined constructor.
+    script.onload = () => {
+      if (window.genyDeviceWebPlayer) resolve();
+      else {
+        _playerReady = null; // allow a retry — don't cache a permanent rejection
+        reject(new Error("device-web-player loaded but genyDeviceWebPlayer global is missing"));
+      }
+    };
+    script.onerror = () => {
+      _playerReady = null; // a transient CDN failure must not poison every later attempt
+      reject(new Error("failed to load device-web-player from CDN"));
+    };
     document.head.appendChild(script);
   });
   return _playerReady;
@@ -63,6 +84,7 @@ export default function GenymotionEmulator({
   const pollRef = useRef(null);
   const statusRef = useRef("idle");
   const ratioPollRef = useRef(null);
+  const generationRef = useRef(0); // bumped on stop()/unmount so stale async continuations abort
   const [status, setStatus] = useState("idle");
   const [msg, setMsg] = useState(null);
   const [ratio, setRatio] = useState(null); // actual stream aspect ratio, detected once connected
@@ -84,6 +106,7 @@ export default function GenymotionEmulator({
   };
 
   const stop = useCallback(async () => {
+    generationRef.current += 1; // invalidate any in-flight start()/connect() continuation
     clearInterval(pollRef.current);
     pollRef.current = null;
     clearInterval(ratioPollRef.current);
@@ -176,6 +199,7 @@ export default function GenymotionEmulator({
 
   const start = useCallback(async () => {
     if (statusRef.current !== "idle" && statusRef.current !== "error") return;
+    const gen = generationRef.current; // capture — abort if a stop() lands mid-flight
     setMsg(null);
     setBoth("starting");
     try {
@@ -184,6 +208,7 @@ export default function GenymotionEmulator({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ label }),
       });
+      if (gen !== generationRef.current) return; // stop() happened while POST was in flight
       const data = await res.json();
       if (!res.ok || !data.label) {
         console.error(`[Genymotion:${label}] start failed:`, data);
@@ -196,8 +221,10 @@ export default function GenymotionEmulator({
 
       let attempts = 0;
       pollRef.current = setInterval(async () => {
+        if (gen !== generationRef.current) { clearInterval(pollRef.current); return; }
         if (++attempts > MAX_POLLS) {
           clearInterval(pollRef.current);
+          pollRef.current = null;
           setMsg("timed out waiting for ONLINE");
           setBoth("error");
           return;
@@ -205,14 +232,27 @@ export default function GenymotionEmulator({
         try {
           const r = await fetch(`/api/genymotion/device?label=${instanceRef.current}`);
           const d = await r.json();
+          if (gen !== generationRef.current) { clearInterval(pollRef.current); return; }
           if (d.state === "ONLINE" && d.webrtcAddress && d.token) {
             clearInterval(pollRef.current);
             pollRef.current = null;
-            await connect(d.webrtcAddress, d.token);
+            try {
+              await connect(d.webrtcAddress, d.token);
+            } catch (e) {
+              // connect() rejected (player/renderer error beyond a successful ONLINE poll):
+              // the interval is already cleared, so clean up and land in an actionable error
+              // state instead of hanging in CONNECTING with no retry.
+              console.error(`[Genymotion:${label}] connect failed:`, e);
+              teardownPlayer();
+              onReady?.(null);
+              setMsg(String(e?.message ?? e) || "failed to connect to the device session");
+              setBoth("error");
+            }
           } else if (d.state === "ONLINE") {
             console.warn(`[Genymotion:${label}] ONLINE but missing connection fields:`, d);
           } else if (["STOPPING", "DELETING", "ERROR", "UNKNOWN"].includes(d.state)) {
             clearInterval(pollRef.current);
+            pollRef.current = null;
             setMsg(`instance state: ${d.state}`);
             setBoth("error");
           }
@@ -226,7 +266,7 @@ export default function GenymotionEmulator({
       setMsg(String(e?.message ?? e));
       setBoth("error");
     }
-  }, [label, connect]);
+  }, [label, connect, onReady]);
 
   // External boot trigger: a parent increments `startSignal` to launch this device
   // (e.g. a single "Start Simulation" button starting both). start() self-guards

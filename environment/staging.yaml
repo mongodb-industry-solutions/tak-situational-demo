@@ -2,11 +2,6 @@ env:
   NODE_ENV: staging
   # Backend API URL — localhost for multi-container pod (frontend + backend sidecar in same pod)
   BACKEND_URL: http://localhost:8000
-  # Private S3 asset (Ditto mesh join QR) read by the backend — generic S3_ASSET_* keys.
-  # S3 creds come from IRSA (s3:GetObject on industry-solutions-demos/industry/mobile/*) — no static keys.
-  S3_ASSET_BUCKET: industry-solutions-demos
-  S3_ASSET_KEY: industry/mobile/ditto_identity_qr.png
-  S3_ASSET_REGION: us-east-1
 
 ## Secrets — set via: helm ksec set <secret-group> KEY="value"
 envSecrets:
@@ -84,6 +79,14 @@ sidecarContainers:
             name: tak-situational-demo
             key: GENYMOTION_PAAS_TOKEN_BRAVO
             optional: true
+      # Private S3 asset (Ditto mesh join QR) read by the backend sidecar. S3 creds come
+      # from IRSA (s3:GetObject on industry-solutions-demos/industry/mobile/*).
+      - name: S3_ASSET_BUCKET
+        value: industry-solutions-demos
+      - name: S3_ASSET_KEY
+        value: industry/mobile/ditto_identity_qr.png
+      - name: S3_ASSET_REGION
+        value: us-east-1
 
 ## AWS IRSA
 serviceAccount:

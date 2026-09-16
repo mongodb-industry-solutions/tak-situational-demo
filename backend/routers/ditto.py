@@ -25,12 +25,15 @@ async def get_ditto_qr():
 
     try:
         import boto3  # lazy — only needed to serve the QR
+        from botocore.exceptions import BotoCoreError
     except ImportError:
         raise HTTPException(status_code=503, detail="boto3 not installed")
 
     try:
         client = boto3.client("s3", region_name=region)
-    except Exception as e:  # cred chain / missing dep surfaces here
+    except BotoCoreError as e:
+        # Cred-chain / missing-dependency failures (NoCredentialsError, ProfileNotFound,
+        # MissingDependencyException, …) all subclass BotoCoreError — surface as a 503.
         raise HTTPException(status_code=503, detail=f"S3 client init failed: {e}")
 
     try:

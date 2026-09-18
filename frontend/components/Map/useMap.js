@@ -2,13 +2,14 @@
 
 import { useCallback } from "react";
 import { usePolling } from "@/lib/hooks/usePolling";
+import { filterByCallsign } from "@/lib/filterByCallsign";
 
 export function isStale(doc) {
   if (!doc.o) return false;
   return Date.now() > doc.o;
 }
 
-export function useMap() {
+export function useMap(callsigns) {
   const fetchTracks = useCallback(async () => {
     const res = await fetch("/api/tracks");
     if (!res.ok) throw new Error("Failed to fetch tracks");
@@ -57,10 +58,10 @@ export function useMap() {
   }, []);
 
   return {
-    tracks: tracks || [],
-    mapitems: mapitems || [],
-    alerts: alerts || [],
-    photoFiles: photoFiles || [],
+    tracks: filterByCallsign(tracks, callsigns),
+    mapitems: filterByCallsign(mapitems, callsigns),
+    alerts: filterByCallsign(alerts, callsigns),
+    photoFiles: filterByCallsign(photoFiles, callsigns),
     loading: tracksLoading || mapitemsLoading,
     placeMarker,
     deleteMarker,

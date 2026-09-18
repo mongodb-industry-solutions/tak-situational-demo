@@ -1,11 +1,20 @@
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from dotenv import load_dotenv
-
 load_dotenv()
 
-from routers import tracks, chat, mapitems, alerts, files, telemetry, systemai  # noqa: E402
+from routers import (
+    alerts,
+    chat,
+    ditto,
+    files,
+    genymotion,
+    mapitems,
+    systemai,
+    telemetry,
+    tracks,
+)
 
 app = FastAPI(title="TAK Situational Demo")
 
@@ -23,6 +32,8 @@ app.include_router(alerts.router, prefix="/api")
 app.include_router(files.router, prefix="/api")
 app.include_router(telemetry.router, prefix="/api")
 app.include_router(systemai.router, prefix="/api")
+app.include_router(genymotion.router, prefix="/api")
+app.include_router(ditto.router, prefix="/api")
 
 @app.get("/")
 async def health():

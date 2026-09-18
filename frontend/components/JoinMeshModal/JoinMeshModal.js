@@ -29,7 +29,7 @@ export default function JoinMeshModal() {
           <div style={{ background: palette.white, padding: "16px", borderRadius: "8px" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/atak-ditto-conf.png"
+              src="/api/ditto/qr"
               alt="Ditto mesh join QR code"
               style={{ width: 280, height: 280, display: "block" }}
             />

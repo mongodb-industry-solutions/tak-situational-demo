@@ -10,6 +10,11 @@ envSecrets:
   LLM_API_KEY: tak-situational-demo
   LLM_BASE_URL: tak-situational-demo
   LLM_MODEL: tak-situational-demo
+  CARTO_API_KEY: tak-situational-demo # Read by the frontend (Next.js API route) only
+  GENYMOTION_PAAS_HOST_ALPHA: tak-situational-demo
+  GENYMOTION_PAAS_TOKEN_ALPHA: tak-situational-demo
+  GENYMOTION_PAAS_HOST_BRAVO: tak-situational-demo
+  GENYMOTION_PAAS_TOKEN_BRAVO: tak-situational-demo
 
 sidecarContainers:
   - name: backend
@@ -50,6 +55,38 @@ sidecarContainers:
           secretKeyRef:
             name: tak-situational-demo
             key: LLM_MODEL
+      - name: GENYMOTION_PAAS_HOST_ALPHA
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: GENYMOTION_PAAS_HOST_ALPHA
+      - name: GENYMOTION_PAAS_TOKEN_ALPHA
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: GENYMOTION_PAAS_TOKEN_ALPHA
+      # BRAVO instance isn't live yet (pending Tue 2026-09-08 contract) — optional so a
+      # secret without these keys yet doesn't block the pod from starting.
+      - name: GENYMOTION_PAAS_HOST_BRAVO
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: GENYMOTION_PAAS_HOST_BRAVO
+            optional: true
+      - name: GENYMOTION_PAAS_TOKEN_BRAVO
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: GENYMOTION_PAAS_TOKEN_BRAVO
+            optional: true
+      # Private S3 asset (Ditto mesh join QR) read by the backend sidecar. S3 creds come
+      # from IRSA (s3:GetObject on industry-solutions-demos/industry/mobile/*).
+      - name: S3_ASSET_BUCKET
+        value: industry-solutions-demos
+      - name: S3_ASSET_KEY
+        value: industry/mobile/ditto_identity_qr.png
+      - name: S3_ASSET_REGION
+        value: us-east-1
 
 serviceAccount:
   enabled: true

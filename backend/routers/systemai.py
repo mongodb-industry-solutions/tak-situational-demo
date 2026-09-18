@@ -2,7 +2,6 @@ import json
 import os
 import time
 import uuid
-from typing import Optional
 
 import anthropic
 from fastapi import APIRouter, HTTPException
@@ -195,7 +194,7 @@ def _run_agent(history: list[dict], user_msg: str) -> str:
 
 class AskRequest(BaseModel):
     msg: str
-    session_id: Optional[str] = None
+    session_id: str | None = None
 
 
 @router.post("/systemai")

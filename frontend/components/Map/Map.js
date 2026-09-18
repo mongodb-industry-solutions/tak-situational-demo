@@ -6,8 +6,8 @@ import { useMap, isStale } from "./useMap";
 // Leaflet requires browser APIs — disable SSR
 const MapInner = dynamic(() => import("./MapInner"), { ssr: false });
 
-export default function Map() {
-  const { tracks, mapitems, alerts, photoFiles, loading, placeMarker, deleteMarker } = useMap();
+export default function Map({ callsigns }) {
+  const { tracks, mapitems, alerts, photoFiles, loading, placeMarker, deleteMarker } = useMap(callsigns);
 
   if (loading) {
     return (

@@ -9,7 +9,16 @@ function formatTime(ms) {
 }
 
 export default function AiChatPanel() {
-  const { messages, thinking, draft, setDraft, sendMessage, bottomRef } = useAiChatPanel();
+  const { messages, thinking, draft, setDraft, sendMessage, bottomRef, status } = useAiChatPanel();
+
+  // Render nothing until the status check resolves, then hide the panel
+  // entirely when no LLM backend is configured. A clone with no Ollama and no
+  // gateway key gets a clean dashboard instead of a panel that errors on every
+  // question — the map, node status and comms feed are the demo's core.
+  if (status === null || status.enabled !== true) return null;
+
+  // Configured but still downloading the model (normal right after `make setup`).
+  const warming = status.ready === false;
 
   return (
     <div style={{
@@ -27,13 +36,20 @@ export default function AiChatPanel() {
         <span style={{ color: "#22c55e", fontFamily: "monospace", fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em" }}>
           SYSTEM AI
         </span>
+        {warming && (
+          <span style={{ color: "#f59e0b", fontFamily: "monospace", fontSize: "10px", marginLeft: "10px", opacity: 0.8 }}>
+            {status.detail || "warming up…"}
+          </span>
+        )}
       </div>
 
       {/* Message history */}
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "6px 14px", display: "flex", flexDirection: "column", gap: "6px" }}>
         {messages.length === 0 && !thinking && (
           <span style={{ color: "#374151", fontFamily: "monospace", fontSize: "11px" }}>
-            Ask LEAFY-AI about the tactical situation…
+            {warming
+              ? "Model is still downloading — this panel will come online shortly."
+              : "Ask LEAFY-AI about the tactical situation…"}
           </span>
         )}
 

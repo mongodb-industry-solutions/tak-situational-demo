@@ -1,8 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useState } from "react";
 import NavBar from "@/components/NavBar/NavBar";
+import { useFeatures } from "@/lib/hooks/useFeatures";
 import Map from "@/components/Map/Map";
 import ChatPanel from "@/components/ChatPanel/ChatPanel";
 import NodeStatus from "@/components/NodeStatus/NodeStatus";
@@ -40,6 +42,41 @@ export default function SimulatePage() {
   const [rendererA, setRendererA] = useState(null);
   const [rendererB, setRendererB] = useState(null);
   const [startSignal, setStartSignal] = useState(0);
+  const features = useFeatures();
+
+  // This view needs Genymotion PaaS instances that only exist in the internal
+  // deployment, so it is gated on ENABLE_SIMULATE. The NavBar already hides the
+  // link; this guards direct navigation to /simulate so an external user who
+  // guesses the URL gets a clear message instead of a wall of failing device
+  // panels.
+  if (features === null) return null;
+  if (features.simulate !== true) {
+    return (
+      <main style={{ backgroundColor: "#0d1117", height: "100vh", display: "flex", flexDirection: "column" }}>
+        <NavBar />
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ maxWidth: 520, textAlign: "center", fontFamily: "monospace" }}>
+            <p style={{ color: palette.yellow.base, fontSize: 13, fontWeight: 700, letterSpacing: "0.06em" }}>
+              SIMULATE VIEW DISABLED
+            </p>
+            <p style={{ color: palette.gray.base, fontSize: 12, lineHeight: 1.6, marginTop: 12 }}>
+              This view drives emulated ATAK devices hosted on Genymotion, which is
+              internal infrastructure and currently paused. It is off unless
+              <code style={{ color: palette.gray.light1 }}> ENABLE_SIMULATE=true</code>.
+            </p>
+            <p style={{ color: palette.gray.dark1, fontSize: 12, lineHeight: 1.6, marginTop: 12 }}>
+              To feed the dashboard locally, pair a real Android device running ATAK
+              CIV with the self-hosted Ditto Big Peer — see docs/RUN_LOCAL.md, or use
+              “Add Device” in the top bar.
+            </p>
+            <Link href="/" style={{ color: "#22c55e", fontSize: 12, display: "inline-block", marginTop: 20 }}>
+              ← Back to the command center
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main style={{ backgroundColor: "#0d1117", height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>

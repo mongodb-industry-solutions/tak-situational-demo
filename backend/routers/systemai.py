@@ -387,7 +387,7 @@ def _model_present(models: list[str], wanted: str) -> bool:
 
 
 @router.get("/systemai/status")
-async def systemai_status():
+def systemai_status():
     """Report whether the AI panel has a usable backend.
 
     The frontend calls this on mount and hides the panel when `enabled` is
@@ -429,7 +429,13 @@ async def systemai_status():
 
 
 @router.post("/systemai")
-async def ask_atlas(body: AskRequest):
+def ask_atlas(body: AskRequest):
+    # Deliberately a plain `def`, not `async def`. The agent loop is blocking —
+    # sync httpx (Ollama) or the sync Anthropic SDK, plus pymongo — and a local
+    # Ollama turn can take minutes across several tool rounds. FastAPI runs
+    # sync handlers in its worker threadpool, so the event loop stays free to
+    # serve the 2 s polling of tracks, chat and health in the meantime.
+    # (systemai_status is a plain `def` for the same reason.)
     if _PROVIDER in ("none", ""):
         raise HTTPException(
             status_code=503,

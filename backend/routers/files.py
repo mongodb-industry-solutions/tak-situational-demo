@@ -25,45 +25,73 @@ async def get_files():
     collection = _db.get_collection("file")
     pipeline = [
         {"$match": {"_r": False, "mime": {"$regex": "^image/"}}},
-        {"$lookup": {
-            "from": "mapitem",
-            "let": {"item_id": "$itemId"},
-            "pipeline": [
-                {"$match": {"$expr": {"$and": [
-                    {"$eq": ["$_id", "$$item_id"]},
-                    {"$eq": ["$_r", False]},
-                ]}}}
-            ],
-            "as": "location",
-        }},
-        {"$project": {
-            "_id": 1,
-            "c": 1,
-            "e": 1,
-            "b": 1,
-            "mime": 1,
-            "sz": 1,
-            "itemId": 1,
-            "j": {"$arrayElemAt": ["$location.j", 0]},
-            "l": {"$arrayElemAt": ["$location.l", 0]},
-        }},
+        {
+            "$lookup": {
+                "from": "mapitem",
+                "let": {"item_id": "$itemId"},
+                "pipeline": [
+                    {
+                        "$match": {
+                            "$expr": {
+                                "$and": [
+                                    {"$eq": ["$_id", "$$item_id"]},
+                                    {"$eq": ["$_r", False]},
+                                ]
+                            }
+                        }
+                    }
+                ],
+                "as": "location",
+            }
+        },
+        {
+            "$project": {
+                "_id": 1,
+                "c": 1,
+                "e": 1,
+                "b": 1,
+                "mime": 1,
+                "sz": 1,
+                "itemId": 1,
+                "j": {"$arrayElemAt": ["$location.j", 0]},
+                "l": {"$arrayElemAt": ["$location.l", 0]},
+            }
+        },
         {"$sort": {"b": -1}},
     ]
     docs = list(collection.aggregate(pipeline))
     return [_serialise(d) for d in docs]
 
 
+def _ditto_api_base() -> str:
+    """Return the Big Peer HTTP API base URL, without a trailing slash.
+
+    DITTO_URL_EP accepts two forms so the same code serves both deployments:
+
+      • bare host — `abc123.cloud.ditto.live` (Ditto Cloud, the internal
+        deployment). Assumed to be HTTPS, with no app-id path segment.
+      • full URL  — `http://ditto-tak-api.ditto.svc.cluster.local:8080/<appId>`
+        (self-hosted Big Peer). The self-hosted HTTP API is app-scoped, so the
+        App ID is part of the path, and in-cluster traffic is plain HTTP.
+
+    Anything containing "://" is treated as a full URL and passed through
+    untouched; otherwise the legacy `https://<host>` behaviour applies.
+    """
+    ep = os.getenv("DITTO_URL_EP", "").strip().rstrip("/")
+    if not ep:
+        return ""
+    return ep if "://" in ep else f"https://{ep}"
+
+
 @router.get("/files/{file_id}/thumb")
 async def get_thumbnail(file_id: str):
     """Proxy the Ditto attachment thumbnail through to the frontend."""
-    ditto_ep = os.getenv("DITTO_URL_EP", "").rstrip("/")
+    ditto_url = _ditto_api_base()
     ditto_token = os.getenv("DITTO_API_KEY", "")
-    if not ditto_ep:
+    if not ditto_url:
         raise HTTPException(status_code=503, detail="DITTO_URL_EP not configured")
-    if not ditto_token:
+    if not ditto_token or ditto_token == "unset":
         raise HTTPException(status_code=503, detail="DITTO_API_KEY not configured")
-
-    ditto_url = f"https://{ditto_ep}"
 
     collection = _db.get_collection("file")
     doc = collection.find_one({"_id": file_id, "_r": False}, {"thumb": 1, "mime": 1})
@@ -78,6 +106,7 @@ async def get_thumbnail(file_id: str):
     attachment_id = base64.urlsafe_b64encode(thumb_id).decode().rstrip("=")
 
     import httpx  # lazy — only needed for thumbnail proxy
+
     async with httpx.AsyncClient(timeout=10.0) as client:
         resp = await client.get(
             f"{ditto_url}/api/v4/attachments/{attachment_id}",
@@ -85,7 +114,9 @@ async def get_thumbnail(file_id: str):
         )
 
     if resp.status_code != 200:
-        raise HTTPException(status_code=502, detail=f"Ditto returned {resp.status_code}")
+        raise HTTPException(
+            status_code=502, detail=f"Ditto returned {resp.status_code}"
+        )
 
     return Response(content=resp.content, media_type=doc.get("mime", "image/jpeg"))
 

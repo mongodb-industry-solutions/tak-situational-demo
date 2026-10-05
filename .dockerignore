@@ -1,5 +1,25 @@
 #-------------------------------------------------------- General --------------------------------------------------------
 
+# Build context trimming. The Docker build context is the repo ROOT (both
+# Dockerfiles COPY from backend/ or frontend/), so anything not excluded here is
+# uploaded to the daemon on every build. tak/ alone is ~1.7 GB of ATAK APKs and
+# the ATAK CIV SDK checkout, which made builds crawl.
+.git/
+.githooks/
+tak/
+not-to-be-uploaded/
+infra/
+scripts/
+docs/
+*.md
+!backend/README.md
+!frontend/README.md
+.drone.yml
+docker-compose*.yml
+environment/
+.secrets/
+.ditto/
+
 # Byte-compiled files
 __pycache__
 *.py[cod]

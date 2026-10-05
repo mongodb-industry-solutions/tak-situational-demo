@@ -1,0 +1,26 @@
+# Always-on host access to the Ops Manager web UI.
+#
+# host :8080 -> nodePort 30080 -> this Service -> the Ops Manager pods
+#
+# Log in with the credentials in the `ops-manager-admin-secret` Secret —
+# scripts/setup.sh prints them at the end of a successful run.
+#
+# Use this to watch EA provisioning, inspect the automation agent, or browse the
+# deployment topology the way a customer running EA on-prem would.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ops-manager-ext
+  namespace: mongodb
+  labels:
+    app.kubernetes.io/part-of: tak-situational-demo
+spec:
+  type: NodePort
+  selector:
+    app: ops-manager-svc
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      nodePort: 30080
+      protocol: TCP

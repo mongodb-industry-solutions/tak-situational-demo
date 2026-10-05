@@ -5,11 +5,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import InfoWizard from "@/components/infoWizard/InfoWizard";
 import JoinMeshModal from "@/components/JoinMeshModal/JoinMeshModal";
+import { useFeatures } from "@/lib/hooks/useFeatures";
 import { palette } from "@leafygreen-ui/palette";
 
 export default function NavBar() {
   const pathname = usePathname();
   const onSimulate = pathname === "/simulate";
+  const features = useFeatures();
+  // The Simulate view is paused internal work (Genymotion-backed ATAK
+  // emulation) and depends on infrastructure that only exists in the internal
+  // deployment. Hide the entry point unless the backend says it's enabled, so a
+  // public clone doesn't show a button that leads nowhere.
+  // Still render the link while on /simulate, so there is always a way back.
+  const showSimulate = features?.simulate === true || onSimulate;
 
   return (
     <nav
@@ -61,23 +69,25 @@ export default function NavBar() {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-        <Link
-          href={onSimulate ? "/" : "/simulate"}
-          style={{
-            backgroundColor: onSimulate ? palette.gray.dark2 : "#166534",
-            border: `1px solid ${onSimulate ? palette.gray.dark1 : "#22c55e"}`,
-            borderRadius: 6,
-            color: palette.white,
-            fontFamily: "monospace",
-            fontSize: "12px",
-            fontWeight: 700,
-            padding: "6px 12px",
-            textDecoration: "none",
-            letterSpacing: "0.04em",
-          }}
-        >
-          {onSimulate ? "← Command Center" : "▶ Simulate"}
-        </Link>
+        {showSimulate && (
+          <Link
+            href={onSimulate ? "/" : "/simulate"}
+            style={{
+              backgroundColor: onSimulate ? palette.gray.dark2 : "#166534",
+              border: `1px solid ${onSimulate ? palette.gray.dark1 : "#22c55e"}`,
+              borderRadius: 6,
+              color: palette.white,
+              fontFamily: "monospace",
+              fontSize: "12px",
+              fontWeight: 700,
+              padding: "6px 12px",
+              textDecoration: "none",
+              letterSpacing: "0.04em",
+            }}
+          >
+            {onSimulate ? "← Command Center" : "▶ Simulate"}
+          </Link>
+        )}
         <JoinMeshModal />
         <InfoWizard tooltipText="About this demo" iconGlyph="Wizard" />
       </div>

@@ -1,0 +1,95 @@
+# The Ditto MongoDB Connector, as an Operator-managed data bridge.
+#
+# This is the piece that replaces the Ditto Cloud Portal's "MongoDB Connector"
+# settings page. In Ditto Cloud the connector is configured by hand in the
+# Portal UI against an Atlas SRV string; here it is declarative, version
+# controlled, and points at the in-cluster MongoDB EA replica set over plain
+# `mongodb://` — no SRV, no public internet, no Atlas IP allowlist.
+#
+# Requires Ditto Operator >= 0.10.0 (operator-managed connectors) and the
+# `ditto.live/app` + `ditto.live/big-peer` labels (mandatory since 0.14.7).
+#
+# The referenced Secret is created by scripts/setup.sh in THIS namespace (the
+# Secret must live in the same namespace as the workload) and holds the
+# `ditto-connector` user's connection string under the key `connectionString`.
+#
+# Prerequisites enforced elsewhere:
+#   • every collection below must already exist in MongoDB with
+#     changeStreamPreAndPostImages enabled  -> mongodb/40-postinit-job.yaml
+#   • the `ditto-connector` user needs readWrite on the database
+#                                          -> mongodb/20-mongodbusers.yaml
+#
+# VERSION-SENSITIVE (Private Preview):
+#   kubectl explain bigpeerdatabridge.spec
+apiVersion: ditto.live/v1alpha1
+kind: BigPeerDataBridge
+metadata:
+  name: tak-mongo-connector
+  namespace: ditto
+  labels:
+    ditto.live/app: tak-situational
+    ditto.live/big-peer: tak
+spec:
+  description: Bidirectional sync between the Ditto ATAK mesh and MongoDB EA.
+  bridge:
+    mongoConnector:
+      connectionSecret:
+        kubernetesSecret:
+          name: tak-mongo-connector
+          # Defaults to `connectionString`; stated explicitly for clarity.
+          connectionString: connectionString
+      database: tak_demo
+
+      # Every Ditto ATAK v2 collection uses a plain String `_id` (a CoT UID, a
+      # file hash, a message id, …), so 1:1 ID mapping — `fields: [_id]` — is
+      # valid and keeps IDs identical on both sides. That matters because the
+      # dashboard addresses documents by the same id it reads from MongoDB
+      # (e.g. DELETE /api/mapitems/{id}).
+      #
+      # mode: native   -> efficient CBOR storage with lossy BSON conversion.
+      #                   The CRD enum is `native` | `ejson` (default `native`).
+      #                   Switch a collection to `ejson` if you need full BSON
+      #                   type fidelity; note EJSON is far more verbose and
+      #                   forces dqlStrictMode off.
+      # dqlStrictMode: false -> objects sync as Ditto maps, so a change to one
+      #                   field doesn't re-sync the whole document. This is the
+      #                   documented recommendation and matches the Ditto SDK
+      #                   5.x default. If nested objects (e.g. `thumb`) fail to
+      #                   round-trip, flipping this to `true` is the first thing
+      #                   to try.
+      # initialSync: true -> pull pre-existing MongoDB documents into Ditto on
+      #                   first connect. A no-op on a fresh cluster; useful when
+      #                   a dump has been restored before setup.
+      collections:
+        # PLI — transient device positions. The busiest collection.
+        track:
+          fields: [_id]
+          initialSync: true
+          mode: native
+          dqlStrictMode: false
+        # Persistent map graphics (markers, shapes) — written by ATAK and by the
+        # dashboard's "place marker" command action.
+        mapitem:
+          fields: [_id]
+          initialSync: true
+          mode: native
+          dqlStrictMode: false
+        # Chat messages, both directions.
+        chat:
+          fields: [_id]
+          initialSync: true
+          mode: native
+          dqlStrictMode: false
+        # Attached files/photos. Binary attachment payloads live in the Big
+        # Peer attachment store, not here; this collection holds the metadata.
+        file:
+          fields: [_id]
+          initialSync: true
+          mode: native
+          dqlStrictMode: false
+        # Emergency / 911 alerts raised by field units.
+        alert:
+          fields: [_id]
+          initialSync: true
+          mode: native
+          dqlStrictMode: false

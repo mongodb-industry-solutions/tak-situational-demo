@@ -79,6 +79,13 @@ sidecarContainers:
             name: tak-situational-demo
             key: GENYMOTION_PAAS_TOKEN_BRAVO
             optional: true
+      # Enables the Simulate view (Genymotion-backed ATAK emulation). Internal
+      # deployments only: it needs the GENYMOTION_PAAS_* instances above, which
+      # nobody outside MongoDB can provision. Surfaced to the frontend via
+      # GET /api/features, so the nav button and /simulate route stay hidden on
+      # local/self-hosted runs where this is unset.
+      - name: ENABLE_SIMULATE
+        value: "true"
       # Private S3 asset (Ditto mesh join QR) read by the backend sidecar. S3 creds come
       # from IRSA (s3:GetObject on industry-solutions-demos/industry/mobile/*).
       - name: S3_ASSET_BUCKET

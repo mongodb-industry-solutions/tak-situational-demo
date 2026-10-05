@@ -259,8 +259,13 @@ docker-compose.override.yml
 screenshot-*.png
 screenshot-*.jpg
 
-# Docs
-docs/
+# Notes, scratch files and anything else that must never be published.
+# docs/ IS tracked (RUN_LOCAL.md, architecture.md, …) — put private material here instead.
+not-to-be-uploaded/
 
-# TAK Specifics
+# TAK Specifics (ATAK APKs, plugin APK, ATAK CIV SDK checkout)
 tak/
+
+# Local cluster state written by scripts/setup.sh
+.secrets/
+.ditto/

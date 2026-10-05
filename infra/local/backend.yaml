@@ -15,8 +15,14 @@ image:
 
 replicaCount: 1
 
-# kind on Apple Silicon is arm64; the chart defaults to amd64.
-arch: arm64
+# Run on whatever architecture the kind node has. setup.sh builds this image
+# natively on the host, so it is arm64 on Apple Silicon and amd64 on most
+# Linux/Intel machines — the node always matches. "*" is the chart's
+# any-architecture setting: no hard kubernetes.io/arch nodeSelector, tolerations
+# for both, and only a soft arm64 preference. (The chart default is amd64, which
+# would leave pods unschedulable on Apple Silicon; pinning arm64 does the same
+# on amd64 hosts.)
+arch: "*"
 
 # Backend is internal-only: the browser reaches it through the frontend's
 # same-origin /api/* proxy. The only ingress is the local-only Swagger route in

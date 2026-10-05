@@ -69,7 +69,11 @@ fi
 
 # ---- disk -----------------------------------------------------------------
 # Ops Manager, EA, Kafka, Big Peer and the Ollama model add up fast.
-AVAIL_GB="$(df -g / 2>/dev/null | awk 'NR==2{print $4}' || echo 0)"
+AVAIL_GB=0
+# `df -g` is BSD-only (GNU df rejects it), so ask for POSIX 1K-blocks with -Pk,
+# which every df supports, and convert to GiB ourselves.
+AVAIL_KB="$(df -Pk / 2>/dev/null | awk 'NR==2{print $4}')"
+case "$AVAIL_KB" in ''|*[!0-9]*) ;; *) AVAIL_GB=$(( AVAIL_KB / 1048576 )) ;; esac
 if [ "${AVAIL_GB:-0}" -gt 0 ] && [ "${AVAIL_GB:-0}" -lt 30 ]; then
   warn "only ${AVAIL_GB}GB free disk — ~30 GB recommended for images + volumes"
 fi

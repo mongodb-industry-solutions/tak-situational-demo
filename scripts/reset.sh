@@ -77,7 +77,7 @@ if [ "$SOFT" = 1 ]; then
 
   say "dropping the demo database…"
   ADMIN_PW="$(ksecret_val "$NS_DB" tak-mongodb-tak-admin-admin password || true)"
-  DB_NAME="${DATABASE_NAME:-tak_demo}"
+  DB_NAME="tak_demo"
   if [ -n "$ADMIN_PW" ]; then
     kubectl -n "$NS_DB" run "tak-reset-drop-$RANDOM" \
       --rm -i --restart=Never --quiet --image=mongo:8.0 --command -- \

@@ -49,7 +49,10 @@ DITTO_OPERATOR_VERSION="${DITTO_OPERATOR_VERSION:-0.18.1}"
 BIG_PEER_VERSION="${BIG_PEER_VERSION:-1.63.2}"
 
 OM_ADMIN_USER="${OM_ADMIN_USER:-admin@tak-demo.local}"
-DB_NAME="${DATABASE_NAME:-tak_demo}"
+# Fixed on purpose: the MongoDBUser roles, post-init Job, Ditto data bridge and
+# backend values all hard-code it. Do NOT read DATABASE_NAME here — it is the
+# backend's variable and may be exported in your shell for other purposes.
+DB_NAME="tak_demo"
 
 # Must match infra/k8s/ditto/20-bigpeerapp.yaml.
 DITTO_APP_ID="${DITTO_APP_ID:-7a9f1c4e-2b6d-4f83-9c15-8e0d3a5b7f42}"
@@ -446,9 +449,20 @@ ok "images built + loaded"
 
 # ===========================================================================
 step "deploy the dashboard (mongodb/web-app chart)"
+# infra/local/backend.yaml configures the backend for in-cluster Ollama. With
+# OLLAMA_SKIP=1 there is no Ollama, so force the AI provider off; otherwise
+# /api/systemai/status reports "enabled, not ready" forever and the panel sits
+# in a permanent warming-up state instead of hiding.
+BACKEND_EXTRA=()
+if [ "${OLLAMA_SKIP:-0}" = "1" ]; then
+  BACKEND_EXTRA=(--set-string env.LLM_PROVIDER=none --set-string env.OLLAMA_BASE_URL=)
+fi
 for svc in backend frontend; do
+  extra=()
+  [ "$svc" = "backend" ] && extra=("${BACKEND_EXTRA[@]+"${BACKEND_EXTRA[@]}"}")
   helm upgrade --install "tak-situational-demo-$svc" mongodb-webapp/web-app \
-    --version "$WEBAPP_CHART_VERSION" -n "$NS_APP" -f "infra/local/$svc.yaml" >/dev/null
+    --version "$WEBAPP_CHART_VERSION" -n "$NS_APP" -f "infra/local/$svc.yaml" \
+    "${extra[@]+"${extra[@]}"}" >/dev/null
   say "released tak-situational-demo-$svc"
 done
 

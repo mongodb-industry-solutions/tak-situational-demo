@@ -1,0 +1,29 @@
+# Always-on host access to MongoDB for Compass / mongosh.
+#
+# host :27017 -> nodePort 30017 -> this Service -> tak-mongodb-0
+#
+# This is a SEPARATE Service that selects the operator-owned pod — we never
+# modify the operator's own headless Services. It pins to pod -0 so the host
+# gets one stable endpoint.
+#
+# Connect with directConnection=true: the replica-set member advertises an
+# in-cluster DNS name that does not resolve from your laptop, so without it the
+# driver would discover the member and then fail to reach it.
+apiVersion: v1
+kind: Service
+metadata:
+  name: tak-mongodb-ext
+  namespace: mongodb
+  labels:
+    app.kubernetes.io/part-of: tak-situational-demo
+spec:
+  type: NodePort
+  selector:
+    app: tak-mongodb-svc
+    statefulset.kubernetes.io/pod-name: tak-mongodb-0
+  ports:
+    - name: mongodb
+      port: 27017
+      targetPort: 27017
+      nodePort: 30017
+      protocol: TCP

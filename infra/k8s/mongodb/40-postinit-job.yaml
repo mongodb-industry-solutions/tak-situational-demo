@@ -1,0 +1,93 @@
+# Post-init Job: create the collections the Ditto MongoDB Connector syncs, with
+# `changeStreamPreAndPostImages` enabled on each one.
+#
+# This is a hard requirement, not an optimisation: the connector refuses to
+# start unless EVERY collection it is configured to sync already exists with
+# pre/post images enabled. It uses them to keep Ditto and MongoDB causally
+# consistent. Pre-creating them here is also why the data bridge can be applied
+# declaratively in the same `setup.sh` run.
+#
+# The Job is idempotent — `createCollection` when missing, `collMod` when it
+# already exists — so scripts/setup.sh can delete and re-run it safely.
+#
+# `ai_sessions` is deliberately NOT given pre/post images and is NOT synced to
+# Ditto: it only stores the dashboard's AI chat history, which never leaves the
+# cloud side.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: tak-mongodb-postinit
+  namespace: mongodb
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      name: tak-mongodb-postinit
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mongosh
+          # Official image — ships `mongosh`. The Enterprise server image does
+          # not reliably include a shell, so we use this instead of exec'ing
+          # into the mongod pod.
+          image: mongo:8.0
+          env:
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  # Published by the MCK operator for the `tak-admin` MongoDBUser.
+                  name: tak-mongodb-tak-admin-admin
+                  key: password
+          command:
+            - bash
+            - -c
+            - |
+              set -euo pipefail
+              URI="mongodb://admin:${ADMIN_PASSWORD}@tak-mongodb-svc.mongodb.svc.cluster.local:27017/?authSource=admin&replicaSet=tak-mongodb"
+              echo "waiting for the replica set to accept writes…"
+              for i in $(seq 1 60); do
+                if mongosh "$URI" --quiet --eval 'db.adminCommand({ping:1})' >/dev/null 2>&1; then
+                  echo "  connected"; break
+                fi
+                sleep 5
+              done
+              mongosh "$URI" --quiet --eval '
+                const dbName = "tak_demo";
+                const target = db.getSiblingDB(dbName);
+
+                // Collections synced bidirectionally with Ditto by the connector.
+                const synced = ["track", "mapitem", "chat", "file", "alert"];
+                // Dashboard-only, never synced to Ditto.
+                const localOnly = ["ai_sessions"];
+
+                const existing = new Set(target.getCollectionNames());
+
+                for (const name of synced) {
+                  if (!existing.has(name)) {
+                    target.createCollection(name, { changeStreamPreAndPostImages: { enabled: true } });
+                    print(`created ${dbName}.${name} (pre/post images enabled)`);
+                  } else {
+                    target.runCommand({ collMod: name, changeStreamPreAndPostImages: { enabled: true } });
+                    print(`updated ${dbName}.${name} (pre/post images enabled)`);
+                  }
+                }
+
+                for (const name of localOnly) {
+                  if (!existing.has(name)) {
+                    target.createCollection(name);
+                    print(`created ${dbName}.${name}`);
+                  }
+                }
+
+                // Fail loudly if any synced collection is missing the flag — the
+                // Ditto connector would otherwise fail at startup with a much
+                // less obvious error.
+                for (const name of synced) {
+                  const info = target.getCollectionInfos({ name })[0];
+                  const on = info?.options?.changeStreamPreAndPostImages?.enabled === true;
+                  if (!on) {
+                    throw new Error(`${dbName}.${name} does NOT have changeStreamPreAndPostImages enabled`);
+                  }
+                }
+                print("all synced collections verified");
+              '

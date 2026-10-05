@@ -1,0 +1,83 @@
+# Ditto Big Peer (a.k.a. Ditto Server) — self-hosted, managed by the Ditto
+# Operator. This replaces Ditto Cloud for local runs.
+#
+# scripts/setup.sh substitutes the __PLACEHOLDER__ values before applying:
+#   __BIG_PEER_HOST__     the ingress hostname ATAK devices connect to, e.g.
+#                         ditto.192.168.1.23.nip.io  (nip.io resolves any
+#                         embedded IP, so a phone on the same LAN can reach the
+#                         laptop without editing /etc/hosts or running a DNS
+#                         server). Override with BIG_PEER_HOST in .env.
+#   __BIG_PEER_VERSION__  the Big Peer release. Override with BIG_PEER_VERSION.
+#
+# `spec.version` is REQUIRED and has no default. The Operator supports Big Peer
+# >= 1.49.0; >= 1.63.2 is recommended because it carries the fix for a connector
+# crash-recovery bug that could write stale MongoDB data back into Ditto.
+#
+# VERSION-SENSITIVE (the Operator is in Private Preview):
+#   kubectl explain bigpeer.spec
+apiVersion: ditto.live/v1alpha1
+kind: BigPeer
+metadata:
+  name: tak
+  namespace: ditto
+spec:
+  version: "__BIG_PEER_VERSION__"
+
+  network:
+    ingressController: Nginx
+    ingress:
+      host: __BIG_PEER_HOST__
+
+  auth:
+    providers:
+      # `__playgroundProvider` is the magic name Ditto SDKs look for when using
+      # an "OnlinePlayground" identity — which is what the ATAK Ditto Edge Sync
+      # plugin uses. Declaring it on the BigPeer makes it available to every app
+      # on this Big Peer.
+      #
+      # Playground auth is for development and demos only: any device holding
+      # the shared token gets full read/write. For anything beyond a demo use
+      # OnlineWithAuthentication with a token webhook instead.
+      __playgroundProvider:
+        anonymous:
+          permission:
+            read:
+              everything: true
+              queriesByCollection: {}
+            write:
+              everything: true
+              queriesByCollection: {}
+          # 7 days, in seconds — long enough to run a demo without re-pairing.
+          sessionLength: 604800
+          sharedToken: __DITTO_PLAYGROUND_TOKEN__
+
+  # Laptop-sized topology. A single store replica with one partition and a
+  # minimum replication factor of 1 is the smallest working Big Peer.
+  store:
+    replicas: 1
+    partitions: 1
+    mrf: 1
+    storage:
+      size: 5Gi
+    resources:
+      requests:
+        cpu: "200m"
+        memory: 512Mi
+      limits:
+        cpu: "1000m"
+        memory: 1536Mi
+
+  subscriptions:
+    replicas: 1
+    resources:
+      requests:
+        cpu: "100m"
+        memory: 256Mi
+      limits:
+        cpu: "1000m"
+        memory: 1Gi
+
+  # NOTE: attachments intentionally use the Operator's default in-memory
+  # backend. It is ephemeral — ATAK photo thumbnails are lost when the Big Peer
+  # API pod restarts. Durable storage needs S3/Azure (EKS/AKS); see
+  # docs/architecture.md ("Known gaps").

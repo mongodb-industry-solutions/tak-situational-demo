@@ -1,0 +1,75 @@
+# Local kind values for the FastAPI backend, deployed with the SAME
+# mongodb/web-app chart used on Kanopy (environment/*.yaml) — local and cloud
+# differ only by values and secrets, never by image or code.
+#
+#   helm upgrade --install tak-situational-demo-backend mongodb/web-app \
+#     -n tak -f infra/local/backend.yaml
+#
+# Secrets scripts/setup.sh creates in the `tak` namespace first:
+#   • tak-mongodb-uri : MONGODB_URI (SCRAM string for the `dashboard` user)
+#   • tak-ditto       : DITTO_URL_EP, DITTO_API_KEY (self-hosted Big Peer)
+image:
+  repository: tak-situational-demo-backend
+  tag: local
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+# kind on Apple Silicon is arm64; the chart defaults to amd64.
+arch: arm64
+
+# Backend is internal-only: the browser reaches it through the frontend's
+# same-origin /api/* proxy. The only ingress is the local-only Swagger route in
+# infra/k8s/ingress/ingress.yaml.
+services:
+  - name: http
+    ingress: false
+    port: 80
+    targetPort: 8000
+    protocol: TCP
+    probes: true
+    type: ClusterIP
+
+probes:
+  enabled: true
+  path: /api/health
+
+env:
+  DATABASE_NAME: tak_demo
+  APP_NAME: tak-situational-demo-backend
+
+  # ── AI panel (LEAFY-AI) ───────────────────────────────────────────────
+  # Local runs use in-cluster Ollama instead of MongoDB's internal LLM
+  # gateway, so the panel works with no API key and no external account.
+  LLM_PROVIDER: ollama
+  OLLAMA_BASE_URL: http://ollama:11434
+  LLM_MODEL: qwen2.5:7b
+  # CPU inference: allow a slow first answer while the model loads.
+  LLM_TIMEOUT_SECONDS: "300"
+
+  # ── Ditto mesh-join QR ────────────────────────────────────────────────
+  # With no S3_ASSET_* configured the backend generates the QR in-process from
+  # these values rather than fetching a pre-made PNG from private S3.
+  # DITTO_AUTH_URL / DITTO_WS_URL / DITTO_PLAYGROUND_TOKEN are injected by
+  # scripts/setup.sh (they depend on the detected LAN IP).
+  DITTO_APP_ID: 7a9f1c4e-2b6d-4f83-9c15-8e0d3a5b7f42
+
+  # The Simulate view is paused internal work (Genymotion-backed ATAK
+  # emulation). Off locally; enabled on Kanopy via environment/*.yaml.
+  ENABLE_SIMULATE: "false"
+
+envSecrets:
+  MONGODB_URI: tak-mongodb-uri
+  DITTO_URL_EP: tak-ditto
+  DITTO_API_KEY: tak-ditto
+  DITTO_AUTH_URL: tak-ditto
+  DITTO_WS_URL: tak-ditto
+  DITTO_PLAYGROUND_TOKEN: tak-ditto
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: 256Mi
+  limits:
+    cpu: "1000m"
+    memory: 768Mi

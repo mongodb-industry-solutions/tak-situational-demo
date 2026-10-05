@@ -1,0 +1,20 @@
+# Namespaces for the local stack.
+#
+#   mongodb — MCK operator, Ops Manager (+ its app DB), the MongoDB EA replica set
+#   ditto   — Ditto Operator, Big Peer components, the MongoDB Connector data bridge
+#   tak     — the demo itself: backend, frontend, Ollama
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mongodb
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ditto
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tak

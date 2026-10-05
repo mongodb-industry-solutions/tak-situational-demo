@@ -1,0 +1,48 @@
+# kind cluster for the local, fully self-hosted TAK situational demo stack.
+#
+# extraPortMappings publish ports from the kind node container to the host so
+# you can reach in-cluster services from your laptop — and, critically, so that
+# Android devices on the same LAN can reach the Ditto Big Peer.
+# These mappings are FIXED AT CLUSTER CREATION — changing them needs
+# `make reset && make setup`.
+#
+#   host :80 / :443  -> ingress-nginx
+#                        • http://localhost                  -> dashboard
+#                        • http://ditto.<LAN-IP>.nip.io      -> Ditto Big Peer
+#                          (the Big Peer Ingress is created by the Ditto
+#                           Operator from BigPeer.spec.network.ingress.host)
+#   host :27017      -> NodePort 30017 -> MongoDB    (Compass / mongosh)
+#   host :8080       -> NodePort 30080 -> Ops Manager web UI
+#
+# The NodePort Services backing the last two live in infra/k8s/access/. The
+# nodePort numbers there MUST match the containerPort numbers below.
+#
+# NOTE: the Ditto Operator management API is NOT published to the host. It has
+# no authentication, so scripts/setup.sh reaches it with a short-lived
+# `kubectl port-forward` on 18081 instead.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      # App + Big Peer ingress (ingress-nginx controller).
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP
+      # MongoDB — host :27017 -> NodePort 30017 (svc tak-mongodb-ext, ns mongodb).
+      - containerPort: 30017
+        hostPort: 27017
+        protocol: TCP
+      # Ops Manager web UI — host :8080 -> NodePort 30080 (svc ops-manager-ext, ns mongodb).
+      - containerPort: 30080
+        hostPort: 8080
+        protocol: TCP

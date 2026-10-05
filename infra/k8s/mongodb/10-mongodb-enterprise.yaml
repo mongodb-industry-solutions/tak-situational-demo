@@ -1,0 +1,57 @@
+# MongoDB Enterprise Advanced, single-member replica set, managed by the
+# in-cluster Ops Manager (05-ops-manager.yaml) via the MCK operator.
+#
+# A single-member replica set is deliberate: it is the smallest topology that
+# still provides an oplog and change streams, which the Ditto MongoDB Connector
+# requires (it reads change streams with pre- and post-images).
+#
+# Minimum version for the Ditto MongoDB Connector is 7.0.13 / 8.0.0 — 8.0.9-ent
+# satisfies that comfortably.
+#
+# VERSION-SENSITIVE: verify field names against the installed CRDs with:
+#   kubectl explain mongodb.spec
+apiVersion: mongodb.com/v1
+kind: MongoDB
+metadata:
+  name: tak-mongodb
+  namespace: mongodb
+spec:
+  members: 1
+  type: ReplicaSet
+  version: "8.0.9-ent"
+
+  # Ops Manager wiring. Both of these are created by scripts/setup.sh after the
+  # MongoDBOpsManager CR reaches Running:
+  #   • ops-manager-project          (ConfigMap: baseUrl, projectName, orgId)
+  #   • mongodb-ops-manager-admin-key (Secret, published by the operator)
+  opsManager:
+    configMapRef:
+      name: ops-manager-project
+  credentials: mongodb-ops-manager-admin-key
+
+  persistent: true
+
+  security:
+    authentication:
+      enabled: true
+      modes: ["SCRAM"]
+
+  statefulSet:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: mongod
+              image: "quay.io/mongodb/mongodb-enterprise-server:8.0.9-ent"
+              resources:
+                requests:
+                  cpu: "500m"
+                  memory: 1.5Gi
+                limits:
+                  cpu: "1500m"
+                  memory: 2.5Gi
+
+  podSpec:
+    persistence:
+      single:
+        storage: 5Gi

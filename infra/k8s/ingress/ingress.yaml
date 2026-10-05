@@ -1,0 +1,75 @@
+# Browser-facing ingress for the local stack (ingress-nginx).
+#
+#   http://localhost            -> the dashboard (use this one)
+#   http://tak.localtest.me     -> the same dashboard, alias for curl/devtools
+#   http://backend.localtest.me -> FastAPI Swagger / ReDoc (local dev only)
+#
+# The Ditto Big Peer gets its OWN Ingress, created by the Ditto Operator from
+# BigPeer.spec.network.ingress.host (ditto.<LAN-IP>.nip.io). It is not defined
+# here — do not add a rule for it, or the two will conflict.
+#
+# *.localtest.me resolves to 127.0.0.1 via public DNS, so no /etc/hosts edits.
+#
+# The backend has NO production ingress: the browser reaches it only through the
+# frontend's same-origin /api/* proxy routes. `backend.localtest.me` exists
+# purely so you can poke the API docs locally and has no cloud equivalent.
+#
+# Service names follow the mongodb/web-app chart convention
+# `<release>-web-app-80`. Confirm with `kubectl -n tak get svc` — the suffix is
+# chart-version dependent.
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tak-frontend
+  namespace: tak
+  annotations:
+    # The AI panel runs CPU inference through Ollama; a cold model load on the
+    # first question can take a while. Don't let nginx time the request out.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: tak-situational-demo-frontend-web-app-80
+                port:
+                  number: 80
+    - host: tak.localtest.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: tak-situational-demo-frontend-web-app-80
+                port:
+                  number: 80
+---
+# LOCAL DEV TOOLING ONLY — no cloud/Kanopy equivalent.
+# http://backend.localtest.me/docs   (Swagger)
+# http://backend.localtest.me/redoc  (ReDoc)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tak-backend-devtools
+  namespace: tak
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: backend.localtest.me
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: tak-situational-demo-backend-web-app-80
+                port:
+                  number: 80

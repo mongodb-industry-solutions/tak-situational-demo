@@ -30,8 +30,32 @@ fi
 
 CLUSTER="${KIND_CLUSTER:-tak-situational-demo}"
 NS_DITTO="ditto"; NS_APP="tak"; NS_DB="mongodb"
+
+usage() {
+  cat <<EOF
+Usage: ./scripts/reset.sh [--soft]
+
+  (no argument)  delete the kind cluster '$CLUSTER' and all local state
+  --soft         keep the cluster, Ops Manager and MongoDB EA; remove only the
+                 Ditto resources, app releases and demo data
+  -h, --help     show this help
+EOF
+}
+
+# Parse arguments strictly. The default action is destructive (it deletes the
+# whole cluster), so an unrecognised argument — e.g. a typo like `--sof` — must
+# abort rather than silently fall through to a full reset.
 SOFT=0
-[ "${1:-}" = "--soft" ] && SOFT=1
+if [ "$#" -gt 1 ]; then
+  usage >&2
+  die "expected at most one argument, got $#: $*"
+fi
+case "${1:-}" in
+  "")        ;;
+  --soft)    SOFT=1 ;;
+  -h|--help) usage; exit 0 ;;
+  *)         usage >&2; die "unknown argument: $1 (nothing was deleted)" ;;
+esac
 
 if [ "$SOFT" = 1 ]; then
   step "soft reset (keeping the cluster, Ops Manager and MongoDB EA)"

@@ -128,6 +128,19 @@ spin_wait() {
 # Decode a key out of a Kubernetes Secret (base64 -> plaintext).
 ksecret_val() { kubectl -n "$1" get secret "$2" -o jsonpath="{.data.$3}" 2>/dev/null | base64 -d; }
 
+# True when the EXACT Ollama model is present in the in-cluster pod.
+#
+# Matching on the base name is wrong: `qwen2.5:3b` being present doesn't make
+# `qwen2.5:7b` usable. Ollama stores an untagged pull as `<name>:latest`, so an
+# untagged name is normalised to that. Mirrors _model_present() in
+# backend/routers/systemai.py.
+ollama_model_present() { # <namespace> <model>
+  local ns="$1" model="$2"
+  case "$model" in *:*) ;; *) model="${model}:latest" ;; esac
+  kubectl -n "$ns" exec deploy/ollama -- ollama list 2>/dev/null \
+    | awk 'NR>1 {print $1}' | grep -qxF "$model"
+}
+
 # Create a {password: <random>} Secret if it doesn't already exist. Idempotent:
 # existing passwords are never rotated, so connection strings stay valid across
 # re-runs of setup.sh.

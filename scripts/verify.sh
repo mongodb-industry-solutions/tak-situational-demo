@@ -215,7 +215,7 @@ if [ "${OLLAMA_SKIP:-0}" = "1" ]; then
   say "OLLAMA_SKIP=1 — the AI panel is intentionally disabled"
 else
   OLLAMA_MODEL="${OLLAMA_MODEL:-qwen2.5:7b}"
-  if kubectl -n "$NS_APP" exec deploy/ollama -- ollama list 2>/dev/null | grep -q "${OLLAMA_MODEL%%:*}"; then
+  if ollama_model_present "$NS_APP" "$OLLAMA_MODEL"; then
     ok "$OLLAMA_MODEL present in the Ollama pod"
   else
     warn "$OLLAMA_MODEL not pulled yet — the AI panel will 503 (tail /tmp/tak-ollama-pull.log)"

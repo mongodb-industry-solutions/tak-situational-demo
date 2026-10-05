@@ -476,7 +476,7 @@ done
 step "Ollama model ($OLLAMA_MODEL)"
 if [ "${OLLAMA_SKIP:-0}" = "1" ]; then
   say "skipped"
-elif kubectl -n "$NS_APP" exec deploy/ollama -- ollama list 2>/dev/null | grep -q "${OLLAMA_MODEL%%:*}"; then
+elif ollama_model_present "$NS_APP" "$OLLAMA_MODEL"; then
   ok "$OLLAMA_MODEL already present"
 else
   ( "$ROOT/scripts/pull-models.sh" ) >/tmp/tak-ollama-pull.log 2>&1 &

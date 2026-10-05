@@ -372,6 +372,20 @@ class AskRequest(BaseModel):
     session_id: str | None = None
 
 
+def _model_present(models: list[str], wanted: str) -> bool:
+    """Return True when the exact configured model is available in Ollama.
+
+    Matching on the base name alone is wrong: `qwen2.5:3b` being present does
+    not make `qwen2.5:7b` usable, and inference would still 404. Ollama stores
+    an untagged pull as `<name>:latest`, so an untagged name is normalised to
+    that before comparing.
+    """
+    wanted = wanted.strip()
+    if ":" not in wanted:
+        wanted = f"{wanted}:latest"
+    return wanted in models
+
+
 @router.get("/systemai/status")
 async def systemai_status():
     """Report whether the AI panel has a usable backend.
@@ -401,9 +415,7 @@ async def systemai_status():
                 resp = client.get(f"{_OLLAMA_BASE_URL}/api/tags")
                 resp.raise_for_status()
                 models = [m.get("name", "") for m in resp.json().get("models", [])]
-            ready = any(
-                m == _MODEL or m.startswith(_MODEL.split(":")[0]) for m in models
-            )
+            ready = _model_present(models, _MODEL)
             status["ready"] = ready
             if not ready:
                 status["detail"] = f"model '{_MODEL}' is still downloading"

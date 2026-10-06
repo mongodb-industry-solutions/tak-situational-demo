@@ -66,10 +66,10 @@ string, the Ops Manager login, and the values for pairing an ATAK device.
 
 |       |                                                                                  |
 | ----- | -------------------------------------------------------------------------------- |
-| Tools | Docker, `kind`, `kubectl`, `helm`, `openssl`, `curl`, `python3`                  |
+| Tools | Docker, `kind`, `kubectl`, `helm`, `openssl`, `curl`, `python3`, `lsof`          |
 | RAM   | **32 GB recommended.** 24 GB works if little else is running; 16 GB will thrash. |
 | Disk  | ~30 GB for images and volumes                                                    |
-| Ports | 80, 443 free (ingress); 27017 and 8080 ideally free                              |
+| Ports | 80, 443, 27017 and 8080 must all be free — kind publishes all four, and any conflict stops the cluster from starting |
 
 `scripts/preflight.sh` checks all of this and runs automatically.
 

@@ -25,7 +25,7 @@ OpenStreetMap basemap tiles.
 | `kind`                          | `brew install kind` · <https://kind.sigs.k8s.io> |
 | `kubectl`                       | `brew install kubectl`                           |
 | `helm`                          | `brew install helm`                              |
-| `openssl`, `curl`, `python3`    | ship with macOS                                  |
+| `openssl`, `curl`, `python3`, `lsof` | ship with macOS; on Linux, `lsof` may need installing (`apt install lsof`) |
 
 ### Hardware
 
@@ -51,21 +51,25 @@ kind publishes these, fixed at cluster creation:
 | 27017     | MongoDB NodePort     | Compass / `mongosh`                     |
 | 8080      | Ops Manager NodePort | Ops Manager web UI                      |
 
-**80 and 443 must be free** before the cluster is created or creation fails:
+**All four ports must be free** before the cluster is created. kind publishes
+every mapping when it creates the node container, so a conflict on *any* of
+them stops the cluster from starting — not just the one service.
+`preflight.sh` checks all four and stops with the offending process if one is
+taken. To check by hand:
 
 ```bash
-sudo lsof -iTCP:80  -P -sTCP:LISTEN
-sudo lsof -iTCP:443 -P -sTCP:LISTEN
+for p in 80 443 27017 8080; do sudo lsof -iTCP:$p -P -sTCP:LISTEN; done
 ```
 
-Usual culprits: a local nginx/Apache/Caddy, or another container bound to `:80`.
+Usual culprits: a local nginx/Apache/Caddy or another container on `:80`, a
+local `mongod` on `:27017`, or a dev server on `:8080`.
 Outbound UDP/443 from browsers, Slack or Cloudflare WARP shows up in `lsof` but
 does **not** bind the local port — harmless. (`preflight.sh` filters correctly;
 use the same flags if checking by hand.)
 
-If 27017 or 8080 are taken, the cluster still comes up — you just lose that one
-host mapping. Free the port or edit `infra/k8s/kind-cluster.yaml`, then
-`make reset && make setup`.
+Free the port, or change its `hostPort` in `infra/k8s/kind-cluster.yaml`.
+Mappings are fixed at creation, so an existing cluster needs
+`make reset && make setup` to pick up the change.
 
 ---
 
@@ -172,7 +176,7 @@ resolve:
 
 ```bash
 ADMIN_PW=$(kubectl -n mongodb get secret tak-mongodb-tak-admin-admin \
-  -o jsonpath='{.data.password}' | base64 -d)
+  -o jsonpath='{.data.password}' | openssl base64 -d -A)
 echo "mongodb://admin:${ADMIN_PW}@localhost:27017/?authSource=admin&directConnection=true"
 # data lives in db `tak_demo`: track · mapitem · chat · file · alert
 ```
@@ -180,8 +184,8 @@ echo "mongodb://admin:${ADMIN_PW}@localhost:27017/?authSource=admin&directConnec
 **Ops Manager** — <http://localhost:8080>:
 
 ```bash
-kubectl -n mongodb get secret ops-manager-admin-secret -o jsonpath='{.data.Username}' | base64 -d; echo
-kubectl -n mongodb get secret ops-manager-admin-secret -o jsonpath='{.data.Password}' | base64 -d; echo
+kubectl -n mongodb get secret ops-manager-admin-secret -o jsonpath='{.data.Username}' | openssl base64 -d -A; echo
+kubectl -n mongodb get secret ops-manager-admin-secret -o jsonpath='{.data.Password}' | openssl base64 -d -A; echo
 ```
 
 Worth opening at least once: it is the same control plane a customer running EA

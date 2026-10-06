@@ -62,16 +62,21 @@ async def api_features():
     reads this to decide what to render, so a fresh clone shows a coherent UI
     instead of panels that fail on every call.
     """
+    devices = genymotion.configured_devices()
     return {
         # Paused internal work (Genymotion-backed ATAK emulation). Hidden unless
-        # explicitly switched on, so external users never see a dead button.
-        "simulate": _truthy(os.getenv("ENABLE_SIMULATE")),
+        # explicitly switched on AND at least one device is configured, so
+        # nobody is shown a view that cannot connect to anything.
+        "simulate": _truthy(os.getenv("ENABLE_SIMULATE")) and bool(devices),
+        # Which emulated devices exist (e.g. ["alpha"]). The Simulate view
+        # renders only these rather than assuming both ALPHA and BRAVO.
+        "simulateDevices": devices,
         # True when a Ditto identity can be produced for ATAK pairing — either a
-        # self-hosted Big Peer or the cloud QR asset in S3.
-        "joinMesh": bool(
-            (os.getenv("DITTO_APP_ID") and os.getenv("DITTO_PLAYGROUND_TOKEN"))
-            or (os.getenv("S3_ASSET_BUCKET") and os.getenv("S3_ASSET_KEY"))
-        ),
+        # self-hosted Big Peer or the cloud QR asset in S3. Uses the same check
+        # as the endpoints that serve it, so a partial self-hosted config (e.g.
+        # no auth/websocket URL) fails closed instead of showing a broken QR.
+        "joinMesh": ditto._local_identity() is not None
+        or bool(os.getenv("S3_ASSET_BUCKET") and os.getenv("S3_ASSET_KEY")),
     }
 
 

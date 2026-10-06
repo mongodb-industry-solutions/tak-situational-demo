@@ -4,19 +4,14 @@ env:
   BACKEND_URL: http://localhost:8000
 
 ## Secrets — set via: helm ksec set <secret-group> KEY="value"
+# Top-level envSecrets are injected into the PRIMARY container only, which is
+# the Next.js frontend. It reads just CARTO_API_KEY (and BACKEND_URL above), so
+# that is the only secret it gets. Every backend credential — MongoDB, Ditto,
+# LLM, Genymotion — is wired to the backend sidecar below via secretKeyRef, so
+# the frontend process never holds them. (This also stops the not-yet-
+# provisioned BRAVO keys from being required by the frontend container.)
 envSecrets:
-  MONGODB_URI: tak-situational-demo
-  DATABASE_NAME: tak-situational-demo
-  DITTO_URL_EP: tak-situational-demo
-  DITTO_API_KEY: tak-situational-demo
-  LLM_API_KEY: tak-situational-demo
-  LLM_BASE_URL: tak-situational-demo
-  LLM_MODEL: tak-situational-demo
-  CARTO_API_KEY: tak-situational-demo # Read by the frontend (Next.js API route) only
-  GENYMOTION_PAAS_HOST_ALPHA: tak-situational-demo
-  GENYMOTION_PAAS_TOKEN_ALPHA: tak-situational-demo
-  GENYMOTION_PAAS_HOST_BRAVO: tak-situational-demo
-  GENYMOTION_PAAS_TOKEN_BRAVO: tak-situational-demo
+  CARTO_API_KEY: tak-situational-demo
 
 sidecarContainers:
   - name: backend

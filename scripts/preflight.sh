@@ -20,31 +20,36 @@ command -v helm    >/dev/null 2>&1 || die "helm not found"
 command -v openssl >/dev/null 2>&1 || die "openssl not found"
 command -v curl    >/dev/null 2>&1 || die "curl not found"
 command -v python3 >/dev/null 2>&1 || die "python3 not found (used to parse API responses)"
-ok "kind + kubectl + helm + openssl + curl + python3"
+# lsof is how we detect host-port conflicts. Without it every port check would
+# silently pass and setup would fail later inside kind with a far less obvious
+# error, so require it up front.
+command -v lsof    >/dev/null 2>&1 || die "lsof not found (used to check host ports) — e.g. apt install lsof / dnf install lsof"
+ok "kind + kubectl + helm + openssl + curl + python3 + lsof"
 
 # Ollama runs in-cluster (infra/k8s/ollama/ollama.yaml) — no host install needed.
 
 # ---- host ports -----------------------------------------------------------
-# kind maps host :80/:443 (ingress) and :27017/:8080 (MongoDB / Ops Manager).
-# They must be free when the cluster is CREATED. We hard-fail only on 80/443,
-# which kind needs to create the node at all; the other two surface as a clear
-# kind error. Skip entirely once the cluster exists — the listener IS the kind
-# node at that point, so the check would be a false positive.
+# kind maps host :80/:443 (ingress) and :27017/:8080 (MongoDB / Ops Manager)
+# as extraPortMappings. Docker publishes ALL of them when it creates the node
+# container, so a conflict on ANY one stops the cluster from starting at all —
+# it doesn't merely lose host access to that one service. All four are
+# therefore fatal. Skip entirely once the cluster exists — the listener IS the
+# kind node at that point, so the check would be a false positive.
 CLUSTER="${KIND_CLUSTER:-tak-situational-demo}"
 if kind get clusters 2>/dev/null | grep -qx "$CLUSTER"; then
   ok "host ports (skipped — kind cluster already exists)"
 else
-  for port in 80 443; do
-    if command -v lsof >/dev/null 2>&1 && lsof -iTCP:"$port" -P -sTCP:LISTEN >/dev/null 2>&1; then
-      die "port $port is in use — kind ingress needs it (stop whatever is listening)"
+  busy=()
+  for port in 80 443 27017 8080; do
+    if lsof -iTCP:"$port" -P -sTCP:LISTEN >/dev/null 2>&1; then
+      busy+=("$port")
+      err "port $port is in use: $(lsof -iTCP:"$port" -P -sTCP:LISTEN 2>/dev/null | awk 'NR==2{print $1" (pid "$2")"}')"
     fi
   done
-  ok "ports 80, 443 free"
-  for port in 27017 8080; do
-    if command -v lsof >/dev/null 2>&1 && lsof -iTCP:"$port" -P -sTCP:LISTEN >/dev/null 2>&1; then
-      warn "port $port is in use — host access for it will fail (free it, or edit infra/k8s/kind-cluster.yaml)"
-    fi
-  done
+  if [ "${#busy[@]}" -gt 0 ]; then
+    die "kind cannot create the cluster while ports ${busy[*]} are taken — stop those processes, or remap them in infra/k8s/kind-cluster.yaml"
+  fi
+  ok "ports 80, 443, 27017, 8080 free"
 fi
 
 # ---- RAM ------------------------------------------------------------------

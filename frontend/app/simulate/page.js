@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import NavBar from "@/components/NavBar/NavBar";
 import { useFeatures } from "@/lib/hooks/useFeatures";
 import Map from "@/components/Map/Map";
@@ -21,11 +21,19 @@ const GenymotionEmulator = dynamic(
 // callsigns with no history, so nodes/chat/markers start empty and fill only with
 // sim activity. (Command-originated chat/markers are intentionally excluded — they'd
 // pull in historical COMMAND test data and break the "just the 2 devices" view.)
-const SIM_CALLSIGNS = ["ALPHA", "BRAVO"];
 
 // Both devices start in the same AO (a few km apart) so they read as one team.
 const ALPHA_START = GPS_PRESETS[0]; // Camp Pendleton
 const BRAVO_START = { label: GPS_PRESETS[0].label, lat: GPS_PRESETS[0].lat + 0.012, lng: GPS_PRESETS[0].lng + 0.014 };
+
+// Every device this view knows how to drive. Which ones actually render comes
+// from the backend (/api/features → simulateDevices): only devices with a
+// configured Genymotion host + token. Production, for instance, has ALPHA but
+// no BRAVO yet, and must not show a BRAVO panel that can never connect.
+const DEVICE_CONFIG = {
+  alpha: { callsign: "ALPHA", title: "FIELD DEVICE — ALPHA", preset: ALPHA_START },
+  bravo: { callsign: "BRAVO", title: "FIELD DEVICE — BRAVO", preset: BRAVO_START },
+};
 
 function DeviceSkeleton() {
   return (
@@ -39,10 +47,27 @@ function DeviceSkeleton() {
 }
 
 export default function SimulatePage() {
-  const [rendererA, setRendererA] = useState(null);
-  const [rendererB, setRendererB] = useState(null);
+  const [renderers, setRenderers] = useState({});
   const [startSignal, setStartSignal] = useState(0);
   const features = useFeatures();
+
+  // Configured devices, in display order, and the callsigns the command-center
+  // panels are filtered to. Memoised so the panels get a stable array.
+  const devices = useMemo(
+    () => (features?.simulateDevices ?? []).filter((d) => DEVICE_CONFIG[d]),
+    [features]
+  );
+  const simCallsigns = useMemo(() => devices.map((d) => DEVICE_CONFIG[d].callsign), [devices]);
+  // One stable onReady per device. GenymotionEmulator lists onReady in its
+  // effect/callback dependencies, so an inline arrow (new identity every
+  // render) would make it re-run teardown/connect logic on every render.
+  const onReadyByDevice = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.keys(DEVICE_CONFIG).map((d) => [d, (r) => setRenderers((prev) => ({ ...prev, [d]: r }))])
+      ),
+    []
+  );
 
   // This view needs Genymotion PaaS instances that only exist in the internal
   // deployment, so it is gated on ENABLE_SIMULATE. The NavBar already hides the
@@ -62,7 +87,8 @@ export default function SimulatePage() {
             <p style={{ color: palette.gray.base, fontSize: 12, lineHeight: 1.6, marginTop: 12 }}>
               This view drives emulated ATAK devices hosted on Genymotion, which is
               internal infrastructure and currently paused. It is off unless
-              <code style={{ color: palette.gray.light1 }}> ENABLE_SIMULATE=true</code>.
+              <code style={{ color: palette.gray.light1 }}> ENABLE_SIMULATE=true</code> and at
+              least one Genymotion device is configured.
             </p>
             <p style={{ color: palette.gray.dark1, fontSize: 12, lineHeight: 1.6, marginTop: 12 }}>
               To feed the dashboard locally, pair a real Android device running ATAK
@@ -101,30 +127,38 @@ export default function SimulatePage() {
             ▶ START SIMULATION
           </button>
 
-          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-            <GenymotionEmulator label="alpha" title="FIELD DEVICE — ALPHA" fluid startSignal={startSignal} onReady={setRendererA} />
-            <GpsControl label="ALPHA" renderer={rendererA} preset={ALPHA_START} />
-          </div>
-
-          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-            <GenymotionEmulator label="bravo" title="FIELD DEVICE — BRAVO" fluid startSignal={startSignal} onReady={setRendererB} />
-            <GpsControl label="BRAVO" renderer={rendererB} preset={BRAVO_START} />
-          </div>
+          {devices.map((d) => {
+            const cfg = DEVICE_CONFIG[d];
+            return (
+              <div key={d} style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+                <GenymotionEmulator
+                  label={d}
+                  title={cfg.title}
+                  fluid
+                  startSignal={startSignal}
+                  onReady={onReadyByDevice[d]}
+                />
+                <GpsControl label={cfg.callsign} renderer={renderers[d] ?? null} preset={cfg.preset} />
+              </div>
+            );
+          })}
         </div>
 
-        {/* RIGHT — clean command center (filtered to the 2 devices) */}
+        {/* RIGHT — clean command center, filtered to the configured devices */}
         <div style={{ flex: 1, minWidth: 0, display: "flex", gap: "12px", overflow: "hidden" }}>
           <div style={{ width: 240, flexShrink: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-            <NodeStatus callsigns={SIM_CALLSIGNS} />
+            <NodeStatus callsigns={simCallsigns} />
           </div>
           <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "12px" }}>
             <div style={{ flex: 1, minHeight: 0, borderRadius: "6px", overflow: "hidden", position: "relative", zIndex: 0 }}>
-              <Map callsigns={SIM_CALLSIGNS} />
+              <Map callsigns={simCallsigns} />
             </div>
-            <AiChatPanel />
+            {/* Same scope as the other panels, so the AI can't report units this
+                view hides. */}
+            <AiChatPanel callsigns={simCallsigns} />
           </div>
           <div style={{ width: 260, flexShrink: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-            <ChatPanel callsigns={SIM_CALLSIGNS} />
+            <ChatPanel callsigns={simCallsigns} />
           </div>
         </div>
 

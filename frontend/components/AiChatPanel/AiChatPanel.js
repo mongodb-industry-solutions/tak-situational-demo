@@ -8,8 +8,11 @@ function formatTime(ms) {
   } catch { return ""; }
 }
 
-export default function AiChatPanel() {
-  const { messages, thinking, draft, setDraft, sendMessage, bottomRef, status } = useAiChatPanel();
+// `callsigns` (optional) scopes the AI to those units — pass the same list the
+// other panels on the page are filtered by.
+export default function AiChatPanel({ callsigns = null } = {}) {
+  const { messages, thinking, draft, setDraft, sendMessage, bottomRef, status, canSend } =
+    useAiChatPanel(callsigns);
 
   // Render nothing until the status check resolves, then hide the panel
   // entirely when no LLM backend is configured. A clone with no Ollama and no
@@ -19,6 +22,9 @@ export default function AiChatPanel() {
 
   // Configured but still downloading the model (normal right after `make setup`).
   const warming = status.ready === false;
+  // Every submit path (typing, Enter, SEND) is blocked while busy or warming.
+  const inputLocked = thinking || !canSend;
+  const sendable = !inputLocked && draft.trim().length > 0;
 
   return (
     <div style={{
@@ -97,9 +103,9 @@ export default function AiChatPanel() {
           type="text"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-          placeholder="Ask the AI…"
-          disabled={thinking}
+          onKeyDown={(e) => e.key === "Enter" && sendable && sendMessage()}
+          placeholder={warming ? "Model downloading…" : "Ask the AI…"}
+          disabled={inputLocked}
           style={{
             flex: 1,
             backgroundColor: "#0d1117",
@@ -110,22 +116,22 @@ export default function AiChatPanel() {
             fontFamily: "monospace",
             padding: "4px 8px",
             outline: "none",
-            opacity: thinking ? 0.5 : 1,
+            opacity: inputLocked ? 0.5 : 1,
           }}
         />
         <button
           onClick={sendMessage}
-          disabled={!draft.trim() || thinking}
+          disabled={!sendable}
           style={{
             background: "none",
             border: "1px solid #1f2937",
             borderRadius: "4px",
-            color: draft.trim() && !thinking ? "#22c55e" : "#374151",
+            color: sendable ? "#22c55e" : "#374151",
             fontSize: "10px",
             fontFamily: "monospace",
             fontWeight: 700,
             padding: "4px 10px",
-            cursor: draft.trim() && !thinking ? "pointer" : "default",
+            cursor: sendable ? "pointer" : "default",
             letterSpacing: "0.06em",
             flexShrink: 0,
           }}

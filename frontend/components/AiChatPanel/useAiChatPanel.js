@@ -1,8 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-export function useAiChatPanel() {
+// How often to re-check while the model is downloading or the backend is
+// unreachable. Both are transient on a freshly started stack.
+const WARMING_POLL_MS = 15000;
+const UNREACHABLE_RETRY_MS = 10000;
+
+// `callsigns` (optional) scopes the agent's data tools to those units, the
+// same way filterByCallsign scopes the map, node list and chat. Omit it on the
+// command center to let the AI see everything.
+export function useAiChatPanel(callsigns = null) {
   const [messages, setMessages] = useState([]);
   const [thinking, setThinking] = useState(false);
   const [draft, setDraft] = useState("");
@@ -12,36 +20,58 @@ export function useAiChatPanel() {
   const [status, setStatus] = useState(null);
   const bottomRef = useRef(null);
 
+  // Stable key for the scope, so a new array literal on every render doesn't
+  // look like a scope change.
+  const scopeKey = useMemo(
+    () => (callsigns && callsigns.length ? [...callsigns].sort().join(",") : ""),
+    [callsigns]
+  );
+
+  // Separate conversation per scope. Sharing one session would replay history
+  // from the unscoped command center (other units) into the scoped view.
   useEffect(() => {
-    let id = localStorage.getItem("leafyai_session_id");
+    const storageKey = scopeKey ? `leafyai_session_id:${scopeKey}` : "leafyai_session_id";
+    let id = localStorage.getItem(storageKey);
     if (!id) {
       id = crypto.randomUUID();
-      localStorage.setItem("leafyai_session_id", id);
+      localStorage.setItem(storageKey, id);
     }
     setSessionId(id);
-  }, []);
+  }, [scopeKey]);
 
-  // Is there an LLM backend, and is it ready? On the local stack Ollama is up
-  // long before its model finishes downloading, so poll until ready to flip the
-  // panel from "warming up" to usable without needing a page reload.
+  // Is there an LLM backend, and is it ready? Keep checking while the answer is
+  // transient:
+  //   • enabled but not ready → the model is still downloading
+  //   • unreachable           → the backend or proxy is down/rolling out
+  // A definite "disabled" (no LLM configured) stops polling. A transport
+  // failure must NOT be treated as disabled, or one failed request during a
+  // rollout would hide the panel until a manual reload.
   useEffect(() => {
     let cancelled = false;
     let timer;
-
-    const check = async () => {
-      try {
-        const res = await fetch("/api/systemai/status");
-        const data = await res.json();
-        if (cancelled) return;
-        setStatus(data);
-        // Keep polling only while enabled-but-not-ready (model downloading).
-        if (data?.enabled && data?.ready === false) {
-          timer = setTimeout(check, 15000);
-        }
-      } catch {
-        if (!cancelled) setStatus({ enabled: false, ready: false });
-      }
+    const retry = (ms) => {
+      if (!cancelled) timer = setTimeout(check, ms);
     };
+
+    async function check() {
+      let data = null;
+      try {
+        const res = await fetch("/api/systemai/status", { cache: "no-store" });
+        data = await res.json().catch(() => null);
+        if (!res.ok || !data || data.unreachable) data = null;
+      } catch {
+        data = null;
+      }
+      if (cancelled) return;
+
+      if (data === null) {
+        // Keep whatever we last knew (null on first load = stay hidden).
+        retry(UNREACHABLE_RETRY_MS);
+        return;
+      }
+      setStatus(data);
+      if (data.enabled && data.ready === false) retry(WARMING_POLL_MS);
+    }
 
     check();
     return () => {
@@ -54,9 +84,13 @@ export function useAiChatPanel() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, thinking]);
 
+  // Submitting is only meaningful once the backend has said it's ready; while
+  // warming up the request would just 503.
+  const canSend = status?.enabled === true && status?.ready !== false;
+
   const sendMessage = useCallback(async () => {
     const msg = draft.trim();
-    if (!msg || thinking || !sessionId) return;
+    if (!msg || thinking || !sessionId || !canSend) return;
 
     setDraft("");
     setMessages((prev) => [
@@ -69,7 +103,11 @@ export function useAiChatPanel() {
       const res = await fetch("/api/systemai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ msg, session_id: sessionId }),
+        body: JSON.stringify({
+          msg,
+          session_id: sessionId,
+          ...(scopeKey ? { callsigns: scopeKey.split(",") } : {}),
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -95,7 +133,7 @@ export function useAiChatPanel() {
     } finally {
       setThinking(false);
     }
-  }, [draft, thinking, sessionId]);
+  }, [draft, thinking, sessionId, canSend, scopeKey]);
 
-  return { messages, thinking, draft, setDraft, sendMessage, bottomRef, status };
+  return { messages, thinking, draft, setDraft, sendMessage, bottomRef, status, canSend };
 }

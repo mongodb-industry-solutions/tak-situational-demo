@@ -28,6 +28,16 @@ DEVICES = {
 }
 
 
+def configured_devices() -> list[str]:
+    """Labels of devices with both a host and a token, in display order.
+
+    /api/features reports this so the Simulate view renders only devices that
+    actually exist. Production has ALPHA but no BRAVO yet; rendering BRAVO
+    there would show a panel that can never connect.
+    """
+    return [label for label, d in DEVICES.items() if d["host"] and d["token"]]
+
+
 def _device(label: str):
     device = DEVICES.get((label or "").lower())
     if not device or not device["host"] or not device["token"]:
@@ -51,7 +61,11 @@ async def start_device(body: dict):
 @router.get("/genymotion/device")
 async def device_state(label: str):
     device = _device(label)
-    return {"state": "ONLINE", "webrtcAddress": f"wss://{device['host']}", "token": device["token"]}
+    return {
+        "state": "ONLINE",
+        "webrtcAddress": f"wss://{device['host']}",
+        "token": device["token"],
+    }
 
 
 @router.delete("/genymotion/device")

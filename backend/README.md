@@ -12,14 +12,12 @@ propagate back to devices through the Ditto MongoDB Connector.
 ## Running on its own
 
 Requires Python ≥3.13,<3.14 and [`uv`](https://docs.astral.sh/uv/), plus a
-reachable MongoDB.
+reachable MongoDB. Run these from the **repository root**:
 
 ```bash
-cp .env.example .env     # then fill in MONGODB_URI + DATABASE_NAME
-make uv_sync             # from the repo root (wraps `cd backend && uv sync`)
-
-cd backend
-uv run uvicorn main:app --host 0.0.0.0 --port 8000
+cp backend/.env.example backend/.env   # then fill in MONGODB_URI + DATABASE_NAME
+make uv_sync                           # wraps `cd backend && uv sync`
+cd backend && uv run uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 - API: <http://localhost:8000>

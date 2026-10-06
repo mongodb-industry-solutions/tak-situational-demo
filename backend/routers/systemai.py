@@ -2,9 +2,10 @@ import json
 import os
 import time
 import uuid
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, StringConstraints
 
 from db.mdb import db as _db
 
@@ -124,11 +125,27 @@ def _openai_tools() -> list[dict]:
     ]
 
 
-def _execute_tool(name: str, inputs: dict) -> str:
+def _scoped(query: dict, callsigns: list[str] | None) -> dict:
+    """Restrict a query to the given callsigns, or return it unchanged.
+
+    Mirrors frontend/lib/filterByCallsign.js: a document is in scope when any
+    of `c` (name), `e` (author callsign), `_id` (CoT UID) or `d` (author UID)
+    is in the list. The Simulate view uses this so the AI answers about the
+    same units the map, node list and chat show, not all historical data.
+    """
+    if not callsigns:
+        return query
+    return {
+        **query,
+        "$or": [{f: {"$in": callsigns}} for f in ("c", "e", "_id", "d")],
+    }
+
+
+def _execute_tool(name: str, inputs: dict, callsigns: list[str] | None = None) -> str:
     now_ms = int(time.time() * 1000)
 
     if name == "get_nodes":
-        docs = list(_db.get_collection("track").find({"_r": False}))
+        docs = list(_db.get_collection("track").find(_scoped({"_r": False}, callsigns)))
         nodes = [
             {
                 "callsign": d.get("e") or d.get("c") or "UNKNOWN",
@@ -151,7 +168,7 @@ def _execute_tool(name: str, inputs: dict) -> str:
             limit = 20
         docs = list(
             _db.get_collection("chat").find(
-                {"_r": False}, sort=[("b", -1)], limit=limit
+                _scoped({"_r": False}, callsigns), sort=[("b", -1)], limit=limit
             )
         )
         docs.reverse()
@@ -167,7 +184,9 @@ def _execute_tool(name: str, inputs: dict) -> str:
         )
 
     if name == "get_map_markers":
-        docs = list(_db.get_collection("mapitem").find({"_r": False}))
+        docs = list(
+            _db.get_collection("mapitem").find(_scoped({"_r": False}, callsigns))
+        )
         return json.dumps(
             [
                 {
@@ -183,7 +202,9 @@ def _execute_tool(name: str, inputs: dict) -> str:
     if name == "get_alerts":
         docs = list(
             _db.get_collection("alert").find(
-                {"_r": False, "w": {"$ne": "b-a-o-can"}}, sort=[("b", -1)], limit=10
+                _scoped({"_r": False, "w": {"$ne": "b-a-o-can"}}, callsigns),
+                sort=[("b", -1)],
+                limit=10,
             )
         )
         return json.dumps(
@@ -254,14 +275,16 @@ def _get_anthropic_client():
     return _anthropic_client
 
 
-def _run_agent_anthropic(history: list[dict], user_msg: str) -> str:
+def _run_agent_anthropic(
+    history: list[dict], user_msg: str, callsigns: list[str] | None = None
+) -> str:
     client = _get_anthropic_client()
     messages: list[dict] = history + [{"role": "user", "content": user_msg}]
 
     for _ in range(10):  # cap tool-call rounds
         response = client.messages.create(
             model=_MODEL,
-            system=_SYSTEM,
+            system=_system_prompt(callsigns),
             messages=messages,
             tools=_TOOLS,
             max_tokens=1024,
@@ -279,7 +302,7 @@ def _run_agent_anthropic(history: list[dict], user_msg: str) -> str:
                 {
                     "type": "tool_result",
                     "tool_use_id": block.id,
-                    "content": _execute_tool(block.name, block.input),
+                    "content": _execute_tool(block.name, block.input, callsigns),
                 }
                 for block in response.content
                 if block.type == "tool_use"
@@ -292,7 +315,9 @@ def _run_agent_anthropic(history: list[dict], user_msg: str) -> str:
 
 
 # ── Ollama agent (local / self-hosted) ─────────────────────────────────────
-def _run_agent_ollama(history: list[dict], user_msg: str) -> str:
+def _run_agent_ollama(
+    history: list[dict], user_msg: str, callsigns: list[str] | None = None
+) -> str:
     """Drive Ollama's native /api/chat endpoint, which supports tool calling.
 
     Uses httpx directly rather than pulling in the OpenAI SDK — httpx is already
@@ -300,7 +325,7 @@ def _run_agent_ollama(history: list[dict], user_msg: str) -> str:
     """
     import httpx  # lazy — matches the pattern used elsewhere in the backend
 
-    messages: list[dict] = [{"role": "system", "content": _SYSTEM}]
+    messages: list[dict] = [{"role": "system", "content": _system_prompt(callsigns)}]
     messages += history
     messages.append({"role": "user", "content": user_msg})
 
@@ -354,22 +379,50 @@ def _run_agent_ollama(history: list[dict], user_msg: str) -> str:
                     {
                         "role": "tool",
                         "name": name,
-                        "content": _execute_tool(name, args),
+                        "content": _execute_tool(name, args, callsigns),
                     }
                 )
 
     return "(Agent did not complete)"
 
 
-def _run_agent(history: list[dict], user_msg: str) -> str:
+def _system_prompt(callsigns: list[str] | None) -> str:
+    """The base prompt, plus a scope note when the view is filtered.
+
+    The callsigns themselves are deliberately NOT interpolated. They come from
+    the client request, and the system prompt is trusted text: a "callsign"
+    containing a newline and new instructions would otherwise be injected with
+    system-level authority. The restriction is enforced by the MongoDB query in
+    _scoped(), so the prompt only needs to say that a scope exists. The model
+    learns the unit names from tool results, which are untrusted data.
+    """
+    if not callsigns:
+        return _SYSTEM
+    return (
+        f"{_SYSTEM}\n\nThis view is limited to a subset of units. The data tools "
+        "only return data for those units, so do not mention or speculate about "
+        "any others."
+    )
+
+
+def _run_agent(
+    history: list[dict], user_msg: str, callsigns: list[str] | None = None
+) -> str:
     if _PROVIDER == "ollama":
-        return _run_agent_ollama(history, user_msg)
-    return _run_agent_anthropic(history, user_msg)
+        return _run_agent_ollama(history, user_msg, callsigns)
+    return _run_agent_anthropic(history, user_msg, callsigns)
 
 
 class AskRequest(BaseModel):
     msg: str
     session_id: str | None = None
+    # Optional unit scope (the Simulate view sends ["ALPHA", "BRAVO"]). When
+    # set, every data tool only returns documents for these callsigns.
+    # Client-controlled: used only as values in a MongoDB $in filter, never in
+    # the prompt. Bounded so a caller can't send an arbitrarily large scope.
+    callsigns: (
+        list[Annotated[str, StringConstraints(min_length=1, max_length=128)]] | None
+    ) = Field(default=None, max_length=50)
 
 
 def _model_present(models: list[str], wanted: str) -> bool:
@@ -450,7 +503,7 @@ def ask_atlas(body: AskRequest):
     history = _load_history(session_id)
 
     try:
-        reply = _run_agent(history, msg)
+        reply = _run_agent(history, msg, body.callsigns)
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"AI agent error: {exc}") from exc
 

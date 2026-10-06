@@ -449,13 +449,18 @@ ok "images built + loaded"
 
 # ===========================================================================
 step "deploy the dashboard (mongodb/web-app chart)"
-# infra/local/backend.yaml configures the backend for in-cluster Ollama. With
-# OLLAMA_SKIP=1 there is no Ollama, so force the AI provider off; otherwise
-# /api/systemai/status reports "enabled, not ready" forever and the panel sits
-# in a permanent warming-up state instead of hiding.
-BACKEND_EXTRA=()
+# infra/local/backend.yaml configures the backend for in-cluster Ollama. Two
+# runtime overrides keep it consistent with what this script actually did:
+#   • OLLAMA_SKIP=1 → there is no Ollama, so force the AI provider off;
+#     otherwise /api/systemai/status reports "enabled, not ready" forever and
+#     the panel sits in a permanent warming-up state instead of hiding.
+#   • otherwise     → tell the backend which model was pulled. OLLAMA_MODEL is
+#     overridable in .env; without this the backend would keep waiting for the
+#     default model while a different one was downloaded.
 if [ "${OLLAMA_SKIP:-0}" = "1" ]; then
   BACKEND_EXTRA=(--set-string env.LLM_PROVIDER=none --set-string env.OLLAMA_BASE_URL=)
+else
+  BACKEND_EXTRA=(--set-string "env.LLM_MODEL=${OLLAMA_MODEL}")
 fi
 for svc in backend frontend; do
   extra=()

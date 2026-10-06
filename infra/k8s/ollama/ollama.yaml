@@ -1,0 +1,98 @@
+# Ollama — the local LLM backend for the dashboard's LEAFY-AI panel.
+#
+# In the internal cloud deployment the AI panel talks to MongoDB's hosted LLM
+# gateway (an Anthropic-compatible endpoint). That gateway is MongoDB-internal,
+# so the local stack runs an open model in-cluster instead: same panel, same
+# tools, no external account and no API key.
+#
+# The model must support tool/function calling, because the agent answers
+# exclusively from live MongoDB data via four tools. `qwen2.5:7b` is the default
+# (solid tool-calling at ~4.7 GB); scripts/pull-models.sh pulls it in the
+# background during setup. Override with OLLAMA_MODEL in .env.
+#
+# Docker Desktop on macOS gives containers CPU only (no Metal passthrough), so
+# expect several seconds per answer. That is acceptable for a demo; the panel is
+# not on the hot path of the map/telemetry view.
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ollama-models
+  namespace: tak
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      # Enough for qwen2.5:7b (~4.7 GB) plus room for a second model.
+      storage: 15Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ollama
+  namespace: tak
+  labels:
+    app: ollama
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+    spec:
+      containers:
+        - name: ollama
+          image: ollama/ollama:latest
+          ports:
+            - name: http
+              containerPort: 11434
+          env:
+            # Ollama rejects requests whose Host header it doesn't recognise as
+            # a DNS-rebinding guard. In-cluster callers use the Service name, so
+            # allow everything — the Service is ClusterIP and never exposed.
+            - name: OLLAMA_ORIGINS
+              value: "*"
+            - name: OLLAMA_HOST
+              value: "0.0.0.0"
+            # Keep the model resident between questions; reloading a 7B model
+            # from the PVC on every request would dominate response time.
+            - name: OLLAMA_KEEP_ALIVE
+              value: "30m"
+          volumeMounts:
+            - name: models
+              mountPath: /root/.ollama
+          resources:
+            requests:
+              cpu: "500m"
+              memory: 2Gi
+            limits:
+              cpu: "4000m"
+              memory: 8Gi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: ollama-models
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: tak
+spec:
+  type: ClusterIP
+  selector:
+    app: ollama
+  ports:
+    - name: http
+      port: 11434
+      targetPort: http
+      protocol: TCP

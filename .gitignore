@@ -16,7 +16,12 @@ setup-hooks.sh
 .drone-seperate-pods.yml
 
 # claude
-**/.claude
+# Ignore personal Claude Code state (settings.local.json, etc.) but track the
+# shared settings.json synced from devops-infra (ISTISO-8). The contents are
+# ignored rather than the directory itself, because git cannot re-include a
+# file whose parent directory is excluded.
+**/.claude/*
+!**/.claude/settings.json
 
 # task-def.json
 **/task-def.json
@@ -226,8 +231,13 @@ frontend/npm-debug.log*
 frontend/yarn-debug.log*
 frontend/yarn-error.log*
 
-# Environment files
+# Environment files — never commit any frontend env file (secrets live in .env.local),
+# except .env.example, which should be tracked as a template with placeholder values
 frontend/.env*
+!frontend/.env.example
+
+# macOS
+.DS_Store
 
 # Vercel
 frontend/.vercel
@@ -239,6 +249,13 @@ frontend/next-env.d.ts
 # Misc
 *.pem
 
+# Local-only docker compose override (mounts host ~/.aws for local S3 testing)
+docker-compose.override.yml
+
+# AWS credentials / config (never commit; IRSA or local SSO profile instead)
+~/.aws
+.aws
+
 # MCP config (personal/local tooling)
 .mcp.json
 .playwright-mcp/
@@ -247,8 +264,13 @@ frontend/next-env.d.ts
 screenshot-*.png
 screenshot-*.jpg
 
-# Docs
-docs/
+# Notes, scratch files and anything else that must never be published.
+# docs/ IS tracked (RUN_LOCAL.md, architecture.md, …) — put private material here instead.
+not-to-be-uploaded/
 
-# TAK Specifics
+# TAK Specifics (ATAK APKs, plugin APK, ATAK CIV SDK checkout)
 tak/
+
+# Local cluster state written by scripts/setup.sh
+.secrets/
+.ditto/

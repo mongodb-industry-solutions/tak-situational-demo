@@ -9,7 +9,19 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "fastapi>=0.115.4",
     "uvicorn>=0.32.0",
+    # Used for the Ditto attachment proxy and to talk to Ollama's chat API.
     "httpx>=0.27.0",
+    # Only used by the cloud deployment's LLM gateway path; imported lazily so
+    # the local Ollama path never touches it.
+    "anthropic>=0.40.0",
+    # Only used to serve the Ditto mesh-join QR from private S3 in the cloud
+    # deployment; imported lazily.
+    "boto3>=1.35.0",
+    "botocore[crt]>=1.35.0",
+    # Generates the mesh-join QR in-process when running against a self-hosted
+    # Big Peer, where the payload depends on the machine's current LAN IP and so
+    # cannot be pre-baked.
+    "qrcode[pil]>=8.0",
 ]
 
 [build-system]
@@ -18,3 +30,13 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
+
+[tool.ruff]
+# Declare the source root so ruff treats ./db and ./routers as local first-party
+# modules. Makes import ordering (isort) deterministic regardless of whether
+# `ruff check` runs from the repo root (`ruff check backend/`, what Drone CI does)
+# or from inside `backend/`.
+src = ["."]
+
+[tool.ruff.lint.isort]
+known-first-party = ["db", "routers"]

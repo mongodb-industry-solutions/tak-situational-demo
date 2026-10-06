@@ -183,9 +183,9 @@ function FileCard({ file, onClick }) {
   );
 }
 
-export default function ChatPanel() {
-  const { messages, loading, bottomRef, draft, setDraft, sending, sendMessage, sendQuick } = useChatPanel();
-  const { files, loading: filesLoading, deleteFile } = useFilePanel();
+export default function ChatPanel({ callsigns }) {
+  const { messages, loading, bottomRef, draft, setDraft, sending, sendMessage, sendQuick } = useChatPanel(callsigns);
+  const { files, loading: filesLoading, deleteFile } = useFilePanel(callsigns);
   const [activeTab, setActiveTab] = useState("CHAT");
   const [selected, setSelected] = useState(null);
 

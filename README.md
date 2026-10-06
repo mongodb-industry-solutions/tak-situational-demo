@@ -1,105 +1,151 @@
 # TAK Situational Demo — Command Vehicle Dashboard
 
-Browser-based situational awareness dashboard for the MongoDB + Ditto tactical
-edge demo. Visualises real-time data from Android ATAK devices synced via the
-Ditto P2P mesh and the Ditto MongoDB Connector into MongoDB Atlas.
+A situational awareness dashboard for the MongoDB + Ditto tactical edge demo.
+Android devices running **ATAK CIV** with the **Ditto ATAK Plugin** form a
+peer-to-peer mesh that keeps working with no network at all; when connectivity
+returns, their position, chat, markers and photos sync through a **Ditto Big
+Peer** and the **Ditto MongoDB Connector** into **MongoDB**, where this
+dashboard renders the live operational picture — and writes commands back.
 
-## Where MongoDB Shines
-
-- **Flexible Document Model** — heterogeneous CoT events, sensor data, and chat
-  messages stored side-by-side without schema rigidity
-- **Queryable Encryption** — operational data on field devices is cryptographically
-  protected; encryption keys stay at Command even if a device is captured
-- **Real-time** — live operational picture the moment connectivity is restored
-  to the field
-
-## High Level Architecture
+Everything runs **on your own machine**: MongoDB **Enterprise Advanced** managed
+by the MongoDB Kubernetes operator, and a **self-hosted Ditto Big Peer** managed
+by the **Ditto Operator**, both in a local `kind` cluster. No MongoDB Atlas
+account, no Ditto Cloud account, no cloud provider.
 
 ```
-[Android ATAK CIV + Ditto Edge Sync Plugin]
-         │  CoT events over Ditto P2P mesh (works fully offline)
-         ▼
-[Ditto Cloud Big Peer]
-         │  Ditto MongoDB Connector
-         ▼
-[MongoDB Atlas]  ← live data in Ditto ATAK v2 schema
-         │  pymongo (read-only)
-         ▼
-[FastAPI Backend]
-         │  REST API (polled every 2s)
-         ▼
-[This Dashboard — Command Vehicle View]
-  Map · Node Status · Comms Feed
+┌─ Android ATAK CIV + Ditto Edge Sync plugin ──┐   ┌─ Android ATAK CIV ─┐
+│  CoT events over a Ditto P2P mesh (offline)  │◀──▶                    │
+└──────────────────────┬───────────────────────┘   └────────────────────┘
+                       │ wss (when a network exists)
+                       ▼
+       Ditto Big Peer  ·  self-hosted via the Ditto Operator
+                       │ Ditto MongoDB Connector (BigPeerDataBridge)
+                       ▼  bidirectional, CRDT conflict resolution
+       MongoDB Enterprise Advanced  ·  MCK operator + self-hosted Ops Manager
+                       │  track · mapitem · chat · file · alert
+                       ▼  pymongo — reads, plus command writes
+       FastAPI backend ──▶ Next.js dashboard  ·  http://localhost
+                           Map · Node Status · Comms · AI panel
 ```
 
-## Tech Stack
+## What it demonstrates
 
-- **FastAPI** — read-only backend API
-- **Next.js** (App Router) — dashboard frontend
-- **MongoDB Atlas** — primary data store (populated by Ditto connector)
-- **LeafyGreen UI** + **Tailwind CSS 4** — UI components and styling
-- **Leaflet.js** — interactive tactical map
+- **Offline-first edge sync.** The mesh is the system of record in the field;
+  MongoDB is the system of record at command. Ditto's CRDTs merge concurrent
+  edits from both sides without custom conflict code.
+- **Bidirectional, declarative integration.** The MongoDB Connector is a
+  Kubernetes resource (`BigPeerDataBridge`), so the edge↔cloud contract is
+  version controlled rather than clicked together in a web console.
+- **The document model doing real work.** Heterogeneous CoT events, chat, file
+  metadata and alerts live side by side in their native shape — the dashboard
+  reads the same single-character Ditto ATAK v2 fields the plugin writes.
+- **Commands flowing back out.** Placing a marker or sending chat from the
+  dashboard writes to MongoDB and lands on the devices through the same
+  connector.
+- **Deploy-anywhere MongoDB.** The identical application image runs against
+  self-managed Enterprise Advanced locally and Atlas in the cloud; only
+  configuration differs.
 
-## Prerequisites
+## Quick start
 
-- Python >=3.13,<3.14
-- Node.js 22+
-- uv
-- MongoDB Atlas cluster URI (Ditto connector must be configured and syncing)
-
-## Run Locally
-
-### Backend
+**No accounts and no credentials required.** Full detail, timings and caveats
+are in **[`docs/RUN_LOCAL.md`](docs/RUN_LOCAL.md)** — read it before the first
+run, the Ops Manager step is slow and that is expected.
 
 ```bash
-cp backend/.env.example backend/.env
-# Edit backend/.env and set MONGODB_URI and DATABASE_NAME
-make uv_init && make uv_sync
-cd backend && uv run uvicorn main:app --host 0.0.0.0 --port 8000
+make setup     # ~25-35 min on a first run (Ops Manager dominates)
+make verify    # end-to-end smoke test, incl. a MongoDB -> Ditto round-trip
+open http://localhost
 ```
 
-Backend available at http://localhost:8000
+`make setup` is idempotent — re-run it after a failure and it resumes. When it
+finishes it prints everything you need: the dashboard URL, a Compass connection
+string, the Ops Manager login, and the values for pairing an ATAK device.
 
-### Frontend
+### Requirements
 
-```bash
-cd frontend
-npm install
-npm run dev
+|       |                                                                                  |
+| ----- | -------------------------------------------------------------------------------- |
+| Tools | Docker, `kind`, `kubectl`, `helm`, `openssl`, `curl`, `python3`, `lsof`          |
+| RAM   | **32 GB recommended.** 24 GB works if little else is running; 16 GB will thrash. |
+| Disk  | ~30 GB for images and volumes                                                    |
+| Ports | 80, 443, 27017 and 8080 must all be free — kind publishes all four, and any conflict stops the cluster from starting |
+
+`scripts/preflight.sh` checks all of this and runs automatically.
+
+> **Pairing a real device is not yet verified end to end.** The dashboard
+> generates the Ditto identity (QR + typed values) for the self-hosted Big Peer,
+> but the exact payload the ATAK plugin expects from a scanned QR has not been
+> confirmed against a physical device. See
+> [`docs/RUN_LOCAL.md`](docs/RUN_LOCAL.md#pairing-an-atak-device).
+
+## Make targets
+
+|                                             |                                                           |
+| ------------------------------------------- | --------------------------------------------------------- |
+| `make setup`                                | Bring the whole local stack up                            |
+| `make verify`                               | End-to-end smoke test                                     |
+| `make status`                               | What's running, across all three namespaces               |
+| `make pair`                                 | Reprint the ATAK pairing details                          |
+| `make rebuild`                              | Rebuild both images and restart — use after a code change |
+| `make logs` / `logs-ditto` / `logs-mongodb` | Tail the dashboard / Big Peer / MCK operator              |
+| `make models`                               | (Re)pull the Ollama model used by the AI panel            |
+| `make soft-reset`                           | Rebuild just the Ditto + app layer (keeps Ops Manager)    |
+| `make reset`                                | Delete the kind cluster and all local state               |
+| `make lint`                                 | Lint the backend the way CI does                          |
+
+`make soft-reset` is the one to use while iterating: it skips the ~25 minute Ops
+Manager rebuild but still gives you a clean Big Peer and database.
+
+## Tech stack
+
+| Layer     | Local (self-hosted)                                                        | Cloud (internal only)           |
+| --------- | -------------------------------------------------------------------------- | ------------------------------- |
+| Database  | MongoDB **Enterprise Advanced** 8.0, MCK operator + in-cluster Ops Manager | MongoDB Atlas                   |
+| Edge sync | **Ditto Big Peer** via the Ditto Operator (Private Preview)                | Ditto Cloud Big Peer            |
+| Connector | `BigPeerDataBridge` CR                                                     | Ditto Portal configuration      |
+| AI panel  | Ollama in-cluster (`qwen2.5:7b`)                                           | MongoDB internal LLM gateway    |
+| Basemap   | OpenStreetMap tiles                                                        | CARTO                           |
+| Backend   | FastAPI · Python 3.13 · `uv`                                               | same image                      |
+| Frontend  | Next.js 15 (App Router, JS) · LeafyGreen · Tailwind 4 · Leaflet            | same image                      |
+| Platform  | `kind`, `mongodb/web-app` Helm chart                                       | Kanopy (Kubernetes), same chart |
+
+## Repo layout
+
+```
+backend/     FastAPI — routers/ (tracks, mapitems, chat, files, alerts,
+             telemetry, systemai, ditto, genymotion), db/mdb.py
+frontend/    Next.js dashboard; /api/* Route Handlers proxy to the backend
+infra/k8s/   kind manifests: MongoDB EA + Ops Manager, Ditto Big Peer + App +
+             connector, Ollama, ingress, host-access NodePorts
+infra/local/ mongodb/web-app Helm values for the local cluster
+scripts/     setup · verify · reset · preflight · pull-models (+ lib.sh)
+environment/ mongodb/web-app Helm values for Kanopy (internal)
+docs/        RUN_LOCAL · architecture · troubleshooting · internal deploy
 ```
 
-Dashboard available at http://localhost:3000
+## Documentation
 
-### Environment variables
+|                                                                              |                                                                                          |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| [`docs/RUN_LOCAL.md`](docs/RUN_LOCAL.md)                                     | **Start here.** Prerequisites, what `setup.sh` does, pairing a device, day-2 operations. |
+| [`docs/architecture.md`](docs/architecture.md)                               | How the pieces fit, data flow, schema, design decisions, known gaps.                     |
+| [`docs/troubleshooting.md`](docs/troubleshooting.md)                         | Symptom-first fixes.                                                                     |
+| [`docs/INTERNAL_DEPLOY_MAINTENANCE.md`](docs/INTERNAL_DEPLOY_MAINTENANCE.md) | The hosted Kanopy/Atlas/Ditto Cloud deployment — **MongoDB internal only**.              |
 
-| Variable | Where | Description |
-|---|---|---|
-| `MONGODB_URI` | `backend/.env` | MongoDB Atlas connection string |
-| `DATABASE_NAME` | `backend/.env` | Atlas database name |
-| `APP_NAME` | `backend/.env` (optional) | App name for Atlas monitoring |
-| `BACKEND_URL` | frontend env / Kanopy | FastAPI backend base URL (default: `http://localhost:8000`) |
+## A note on the hosted deployment
 
-## Run with Docker
+There is also a continuously deployed internal instance on Kanopy, backed by
+Atlas and Ditto Cloud, used for MongoDB-internal demos. It is **not** the
+intended way to run this repository: it depends on MongoDB-internal
+infrastructure (Kanopy, the LLM gateway, a private S3 asset, Genymotion) that
+nobody outside MongoDB can provision. Everything in this README and in
+`docs/RUN_LOCAL.md` describes the self-hosted path, which is the supported one.
 
-```bash
-make build   # build and start both containers
-make clean   # teardown containers and images
-```
+The `/simulate` view and the `genymotion` router belong to a **paused** effort to
+emulate ATAK devices for sales demos. They are kept in-tree but hidden unless
+`ENABLE_SIMULATE=true`, so a fresh clone shows no dead buttons.
 
-## Deployment (Kanopy)
+## License
 
-See [KANOPY_DEPLOYMENT_README.md](KANOPY_DEPLOYMENT_README.md) for full instructions.
-
-Deployment name: `tak-situational-demo`
-
-## Common Errors
-
-### Backend
-
-- Ensure `backend/.env` exists with a valid `MONGODB_URI` and `DATABASE_NAME`.
-- Ensure the Atlas cluster IP allowlist includes your machine (or Kanopy egress range).
-
-### Frontend
-
-- If the map does not render, check that `BACKEND_URL` is reachable and `/api/tracks` returns data.
-- Leaflet requires browser APIs — the map component uses `dynamic` import with `ssr: false`.
+See [LICENSE](LICENSE).

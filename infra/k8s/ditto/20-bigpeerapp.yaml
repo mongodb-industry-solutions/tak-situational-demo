@@ -1,0 +1,22 @@
+# The Ditto App (SDK v5 calls this a "Database") that ATAK devices and the
+# MongoDB Connector share.
+#
+# An App is a logical container for data and the unit the App ID identifies.
+# Declaring it as a CR (rather than POSTing to the Operator management API)
+# means WE choose the App ID, so it is stable across teardowns — the mesh-join
+# QR code and ATAK's saved config stay valid after `make reset && make setup`.
+#
+# The App ID must be a valid UUID, unique on this Big Peer. It is not a secret
+# (the shared playground token is the credential), so it is safe to commit.
+#
+# Auth comes from the `__playgroundProvider` declared on the BigPeer in
+# 10-bigpeer.yaml, which applies to every app — no app-scoped auth needed.
+apiVersion: ditto.live/v1alpha1
+kind: BigPeerApp
+metadata:
+  name: tak-situational
+  namespace: ditto
+  labels:
+    ditto.live/big-peer: tak
+spec:
+  appId: 7a9f1c4e-2b6d-4f83-9c15-8e0d3a5b7f42

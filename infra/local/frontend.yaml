@@ -1,0 +1,58 @@
+# Local kind values for the Next.js dashboard (mongodb/web-app chart).
+#
+#   helm upgrade --install tak-situational-demo-frontend mongodb/web-app \
+#     -n tak -f infra/local/frontend.yaml
+#
+# The browser reaches this through infra/k8s/ingress/ingress.yaml at
+# http://localhost. The chart names the Service
+# `tak-situational-demo-frontend-web-app-80`, which that Ingress targets.
+image:
+  repository: tak-situational-demo-frontend
+  tag: local
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+# Run on whatever architecture the kind node has. setup.sh builds this image
+# natively on the host, so it is arm64 on Apple Silicon and amd64 on most
+# Linux/Intel machines — the node always matches. "*" is the chart's
+# any-architecture setting: no hard kubernetes.io/arch nodeSelector, tolerations
+# for both, and only a soft arm64 preference. (The chart default is amd64, which
+# would leave pods unschedulable on Apple Silicon; pinning arm64 does the same
+# on amd64 hosts.)
+arch: "*"
+
+services:
+  - name: http
+    # We use the standalone Ingress in infra/k8s/ingress instead, so that
+    # `localhost` and `tak.localtest.me` can share one definition.
+    ingress: false
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+    probes: true
+    type: ClusterIP
+
+probes:
+  enabled: true
+  path: /
+
+env:
+  # Server-side proxy target. Every frontend/app/api/* route handler reads
+  # BACKEND_URL at request time, so the same image works in every environment
+  # with no NEXT_PUBLIC_* baked in at build time.
+  BACKEND_URL: http://tak-situational-demo-backend-web-app-80
+  NODE_ENV: production
+  # No CARTO_API_KEY locally — the map falls back to OpenStreetMap tiles.
+  #
+  # ENABLE_SIMULATE is deliberately NOT set here: it is read by the BACKEND and
+  # reported to the browser via GET /api/features, so there is exactly one place
+  # that decides whether the Simulate view exists.
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: 256Mi
+  limits:
+    cpu: "1000m"
+    memory: 512Mi

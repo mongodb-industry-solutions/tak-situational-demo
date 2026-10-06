@@ -1,11 +1,28 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import InfoWizard from "@/components/infoWizard/InfoWizard";
 import JoinMeshModal from "@/components/JoinMeshModal/JoinMeshModal";
+import { useFeatures } from "@/lib/hooks/useFeatures";
 import { palette } from "@leafygreen-ui/palette";
 
 export default function NavBar() {
+  const pathname = usePathname();
+  const onSimulate = pathname === "/simulate";
+  const features = useFeatures();
+  // The Simulate view is paused internal work (Genymotion-backed ATAK
+  // emulation) and depends on infrastructure that only exists in the internal
+  // deployment. Hide the entry point unless the backend says it's enabled, so a
+  // public clone doesn't show a button that leads nowhere.
+  // Still render the link while on /simulate, so there is always a way back.
+  const showSimulate = features?.simulate === true || onSimulate;
+  // "Add Device" needs a Ditto identity to show: either a self-hosted Big Peer
+  // or the cloud QR asset. Without one the QR request 503s, so hide the button
+  // rather than open a modal with a broken image.
+  const showJoinMesh = features?.joinMesh === true;
+
   return (
     <nav
       style={{
@@ -35,20 +52,47 @@ export default function NavBar() {
         >
           TAK Situational Demo
         </span>
-        <span
-          style={{
-            color: palette.gray.base,
-            fontFamily: "var(--font-geist-sans, sans-serif)",
-            fontWeight: 400,
-            fontSize: "13px",
-          }}
-        >
-          Command Vehicle View
-        </span>
+        {onSimulate ? (
+          <span style={{ display: "flex", alignItems: "center", gap: "8px", fontFamily: "var(--font-geist-sans, sans-serif)", fontSize: "13px" }}>
+            <span style={{ color: palette.gray.light1, fontWeight: 600 }}>Field Devices</span>
+            <span style={{ color: palette.gray.dark1 }}>|</span>
+            <span style={{ color: palette.gray.base, fontWeight: 400 }}>Command Vehicle View</span>
+          </span>
+        ) : (
+          <span
+            style={{
+              color: palette.gray.base,
+              fontFamily: "var(--font-geist-sans, sans-serif)",
+              fontWeight: 400,
+              fontSize: "13px",
+            }}
+          >
+            Command Vehicle View
+          </span>
+        )}
       </div>
 
-      <div style={{ display: "flex", alignItems: "center" }}>
-        <JoinMeshModal />
+      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        {showSimulate && (
+          <Link
+            href={onSimulate ? "/" : "/simulate"}
+            style={{
+              backgroundColor: onSimulate ? palette.gray.dark2 : "#166534",
+              border: `1px solid ${onSimulate ? palette.gray.dark1 : "#22c55e"}`,
+              borderRadius: 6,
+              color: palette.white,
+              fontFamily: "monospace",
+              fontSize: "12px",
+              fontWeight: 700,
+              padding: "6px 12px",
+              textDecoration: "none",
+              letterSpacing: "0.04em",
+            }}
+          >
+            {onSimulate ? "← Command Center" : "▶ Simulate"}
+          </Link>
+        )}
+        {showJoinMesh && <JoinMeshModal />}
         <InfoWizard tooltipText="About this demo" iconGlyph="Wizard" />
       </div>
     </nav>

@@ -1,10 +1,12 @@
 import re
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+
 from db.mdb import db as _db
 
 router = APIRouter()
@@ -36,7 +38,7 @@ async def place_marker(body: PlaceMarkerRequest):
     if not label:
         raise HTTPException(status_code=400, detail="Label cannot be empty")
     now = int(time.time() * 1000)
-    now_iso = datetime.fromtimestamp(now / 1000, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    now_iso = datetime.fromtimestamp(now / 1000, tz=UTC).strftime("%Y-%m-%dT%H:%M:%S.000Z")
     type_prefix = body.marker_type[:3]  # "a-f", "a-n", "a-u", "a-h"
     iconset = f"COT_MAPPING_2525C/{type_prefix}/{body.marker_type}"
     detail = (

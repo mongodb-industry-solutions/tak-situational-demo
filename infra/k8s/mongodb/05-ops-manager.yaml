@@ -1,0 +1,85 @@
+# Self-hosted Ops Manager — the local control plane for MongoDB Enterprise
+# Advanced, managed by MCK (MongoDB Controllers for Kubernetes).
+#
+# MongoDB EA under MCK needs an external management resource: Ops Manager
+# (self-managed) or Cloud Manager (SaaS). Running Ops Manager IN the cluster is
+# what makes this demo fully self-hosted — no MongoDB-operated cloud service is
+# involved after the images are pulled.
+#
+# The MCK operator provisions two things from this CR:
+#   1. ops-manager-db  — a replica set holding Ops Manager's own state
+#   2. ops-manager     — the Ops Manager application (Java, ~2-4 GB RAM)
+#
+# Once it reports Running, the operator publishes a Secret named
+# `mongodb-ops-manager-admin-key` (publicKey + privateKey). scripts/setup.sh
+# waits for that Secret, queries the OM API for the orgId, then writes the
+# `ops-manager-project` ConfigMap that 10-mongodb-enterprise.yaml references.
+#
+# VERSION-SENSITIVE: field names follow MCK ~1.8.x. Verify against the CRDs
+# actually installed with:
+#   kubectl explain mongodbopsmanager.spec
+apiVersion: mongodb.com/v1
+kind: MongoDBOpsManager
+metadata:
+  name: ops-manager
+  namespace: mongodb
+spec:
+  replicas: 1
+
+  # Ops Manager release. Must be able to manage the mongod version pinned in
+  # 10-mongodb-enterprise.yaml. Ops Manager 8.0 manages MongoDB 8.0.x.
+  version: "8.0.0"
+
+  # Secret created by scripts/setup.sh BEFORE this CR is applied.
+  # Keys: Username (email), Password, FirstName, LastName.
+  adminCredentials: ops-manager-admin-secret
+
+  configuration:
+    # Skip the first-run setup wizard — the operator configures OM for us.
+    mms.ignoreInitialUiSetup: "true"
+    mms.adminEmailAddr: "admin@tak-demo.local"
+    mms.fromEmailAddr: "admin@tak-demo.local"
+    mms.replyToEmailAddr: "admin@tak-demo.local"
+    # There is no SMTP server in-cluster; point mail at localhost so OM starts.
+    mms.mail.transport: "smtp"
+    mms.mail.hostname: "localhost"
+    mms.mail.port: "25"
+    # Let OM fetch the mongod binaries it needs from the CDN.
+    mongodb.release.autoDownload: "true"
+    mms.versions.source: "remote"
+
+  # Heavy JVM. 2 GB floor / 4 GB ceiling keeps it viable on a laptop.
+  statefulSet:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: mongodb-ops-manager
+              resources:
+                requests:
+                  cpu: "500m"
+                  memory: 2Gi
+                limits:
+                  cpu: "2000m"
+                  memory: 4Gi
+
+  # Ops Manager's own application database. The CRD requires >= 3 members, so
+  # these are kept deliberately small.
+  applicationDatabase:
+    members: 3
+    version: "8.0.0-ent"
+    podSpec:
+      persistence:
+        single:
+          storage: 5Gi
+      podTemplate:
+        spec:
+          containers:
+            - name: mongod
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: 256Mi
+                limits:
+                  cpu: "500m"
+                  memory: 512Mi

@@ -4,11 +4,14 @@ env:
   BACKEND_URL: http://localhost:8000
 
 ## Secrets — set via: helm ksec set <secret-group> KEY="value"
+# Top-level envSecrets are injected into the PRIMARY container only, which is
+# the Next.js frontend. It reads just CARTO_API_KEY (and BACKEND_URL above), so
+# that is the only secret it gets. Every backend credential — MongoDB, Ditto,
+# LLM, Genymotion — is wired to the backend sidecar below via secretKeyRef, so
+# the frontend process never holds them. (This also stops the not-yet-
+# provisioned BRAVO keys from being required by the frontend container.)
 envSecrets:
-  MONGODB_URI: tak-situational-demo
-  DATABASE_NAME: tak-situational-demo
-  DITTO_URL_EP: tak-situational-demo
-  DITTO_API_KEY: tak-situational-demo
+  CARTO_API_KEY: tak-situational-demo
 
 sidecarContainers:
   - name: backend
@@ -34,6 +37,58 @@ sidecarContainers:
           secretKeyRef:
             name: tak-situational-demo
             key: DITTO_API_KEY
+      - name: LLM_API_KEY
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: LLM_API_KEY
+      - name: LLM_BASE_URL
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: LLM_BASE_URL
+      - name: LLM_MODEL
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: LLM_MODEL
+      - name: GENYMOTION_PAAS_HOST_ALPHA
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: GENYMOTION_PAAS_HOST_ALPHA
+      - name: GENYMOTION_PAAS_TOKEN_ALPHA
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: GENYMOTION_PAAS_TOKEN_ALPHA
+      - name: GENYMOTION_PAAS_HOST_BRAVO
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: GENYMOTION_PAAS_HOST_BRAVO
+            optional: true
+      - name: GENYMOTION_PAAS_TOKEN_BRAVO
+        valueFrom:
+          secretKeyRef:
+            name: tak-situational-demo
+            key: GENYMOTION_PAAS_TOKEN_BRAVO
+            optional: true
+      # Enables the Simulate view (Genymotion-backed ATAK emulation). Internal
+      # deployments only: it needs the GENYMOTION_PAAS_* instances above, which
+      # nobody outside MongoDB can provision. Surfaced to the frontend via
+      # GET /api/features, so the nav button and /simulate route stay hidden on
+      # local/self-hosted runs where this is unset.
+      - name: ENABLE_SIMULATE
+        value: "true"
+      # Private S3 asset (Ditto mesh join QR) read by the backend sidecar. S3 creds come
+      # from IRSA (s3:GetObject on industry-solutions-demos/industry/mobile/*).
+      - name: S3_ASSET_BUCKET
+        value: industry-solutions-demos
+      - name: S3_ASSET_KEY
+        value: industry/mobile/ditto_identity_qr.png
+      - name: S3_ASSET_REGION
+        value: us-east-1
 
 ## AWS IRSA
 serviceAccount:

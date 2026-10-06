@@ -16,7 +16,12 @@ setup-hooks.sh
 .drone-seperate-pods.yml
 
 # claude
-**/.claude
+# Ignore personal Claude Code state (settings.local.json, etc.) but track the
+# shared settings.json synced from devops-infra (ISTISO-8). The contents are
+# ignored rather than the directory itself, because git cannot re-include a
+# file whose parent directory is excluded.
+**/.claude/*
+!**/.claude/settings.json
 
 # task-def.json
 **/task-def.json

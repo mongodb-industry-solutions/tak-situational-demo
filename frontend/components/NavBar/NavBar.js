@@ -18,6 +18,10 @@ export default function NavBar() {
   // public clone doesn't show a button that leads nowhere.
   // Still render the link while on /simulate, so there is always a way back.
   const showSimulate = features?.simulate === true || onSimulate;
+  // "Add Device" needs a Ditto identity to show: either a self-hosted Big Peer
+  // or the cloud QR asset. Without one the QR request 503s, so hide the button
+  // rather than open a modal with a broken image.
+  const showJoinMesh = features?.joinMesh === true;
 
   return (
     <nav
@@ -88,7 +92,7 @@ export default function NavBar() {
             {onSimulate ? "← Command Center" : "▶ Simulate"}
           </Link>
         )}
-        <JoinMeshModal />
+        {showJoinMesh && <JoinMeshModal />}
         <InfoWizard tooltipText="About this demo" iconGlyph="Wizard" />
       </div>
     </nav>

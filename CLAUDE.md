@@ -1,5 +1,14 @@
 # CLAUDE.md — TAK Situational Demo
 
+## SECURITY RULES
+- NEVER read, output, or search inside `.env` or `.env.*` files.
+- STOP immediately if you encounter API keys, credentials, passwords, or tokens.
+- Do not execute commands like `printenv`, `env`, `kubectl`, `helm` or `cat .env`.
+
+<!-- The block above is synced from mongodb-industry-solutions/devops-infra
+     (ISTISO-8) and enforced by .claude/settings.json. Keep it verbatim and at
+     the top; edit the project guidance below freely. -->
+
 ## Project Overview
 
 Command vehicle web dashboard for a MongoDB + Ditto tactical edge demo.

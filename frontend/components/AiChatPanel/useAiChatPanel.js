@@ -76,7 +76,7 @@ export function useAiChatPanel() {
         // Surface the backend's reason (e.g. "model is still downloading")
         // rather than a generic failure — on a fresh local cluster that message
         // is the difference between "broken" and "wait two minutes".
-        throw new Error(data?.error || data?.detail || `Request failed (${res.status})`);
+        throw new Error(data?.detail || data?.error || `Request failed (${res.status})`);
       }
       setMessages((prev) => [
         ...prev,

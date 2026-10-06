@@ -22,7 +22,10 @@ if [ -f .env ]; then
 fi
 
 NS_DB="mongodb"; NS_DITTO="ditto"; NS_APP="tak"
-DB_NAME="${DATABASE_NAME:-tak_demo}"
+# Fixed on purpose: the MongoDBUser roles, post-init Job, Ditto data bridge and
+# backend values all hard-code it. Do NOT read DATABASE_NAME here — it is the
+# backend's variable and may be exported in your shell for other purposes.
+DB_NAME="tak_demo"
 DITTO_APP_ID="${DITTO_APP_ID:-7a9f1c4e-2b6d-4f83-9c15-8e0d3a5b7f42}"
 BIG_PEER_NAME="tak"
 FAILED=0
@@ -89,7 +92,10 @@ step "Ditto Big Peer"
 BP_COND="$(kubectl -n "$NS_DITTO" get bigpeer "$BIG_PEER_NAME" \
   -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)"
 BP_PODS="$(kubectl -n "$NS_DITTO" get pods -l "ditto.live/big-peer=$BIG_PEER_NAME" --no-headers 2>/dev/null | grep -c Running || true)"
-if [ "$BP_COND" = "True" ] || [ "${BP_PODS:-0}" -ge 3 ]; then
+# Trust the operator's Ready condition whenever it reports one — an explicit
+# Ready=False must fail even if pods happen to be Running. Fall back to
+# counting pods only on operators that expose no condition (as setup.sh does).
+if { [ -n "$BP_COND" ] && [ "$BP_COND" = "True" ]; } || { [ -z "$BP_COND" ] && [ "${BP_PODS:-0}" -ge 3 ]; }; then
   ok "Big Peer up (${BP_PODS:-0} pods Running${BP_COND:+, Ready=$BP_COND})"
 else
   fail "Big Peer not ready (Ready='${BP_COND:-n/a}', ${BP_PODS:-0} pods Running) — kubectl -n $NS_DITTO describe bigpeer $BIG_PEER_NAME"
@@ -108,7 +114,8 @@ step "Ditto MongoDB Connector"
 DB_COND="$(kubectl -n "$NS_DITTO" get bigpeerdatabridge tak-mongo-connector \
   -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)"
 CONN_PODS="$(kubectl -n "$NS_DITTO" get pods -l "ditto.live/app=tak-situational" --no-headers 2>/dev/null | grep -c Running || true)"
-if [ "$DB_COND" = "True" ] || [ "${CONN_PODS:-0}" -ge 1 ]; then
+# Same rule as the Big Peer: an explicit Ready condition wins over pod count.
+if { [ -n "$DB_COND" ] && [ "$DB_COND" = "True" ]; } || { [ -z "$DB_COND" ] && [ "${CONN_PODS:-0}" -ge 1 ]; }; then
   ok "connector running (${CONN_PODS:-0} pods${DB_COND:+, Ready=$DB_COND})"
 else
   fail "connector not ready — kubectl -n $NS_DITTO describe bigpeerdatabridge tak-mongo-connector"

@@ -2,9 +2,10 @@ import json
 import os
 import time
 import uuid
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, StringConstraints
 
 from db.mdb import db as _db
 
@@ -140,9 +141,7 @@ def _scoped(query: dict, callsigns: list[str] | None) -> dict:
     }
 
 
-def _execute_tool(
-    name: str, inputs: dict, callsigns: list[str] | None = None
-) -> str:
+def _execute_tool(name: str, inputs: dict, callsigns: list[str] | None = None) -> str:
     now_ms = int(time.time() * 1000)
 
     if name == "get_nodes":
@@ -185,7 +184,9 @@ def _execute_tool(
         )
 
     if name == "get_map_markers":
-        docs = list(_db.get_collection("mapitem").find(_scoped({"_r": False}, callsigns)))
+        docs = list(
+            _db.get_collection("mapitem").find(_scoped({"_r": False}, callsigns))
+        )
         return json.dumps(
             [
                 {
@@ -386,13 +387,21 @@ def _run_agent_ollama(
 
 
 def _system_prompt(callsigns: list[str] | None) -> str:
-    """The base prompt, plus a scope note when the view is filtered."""
+    """The base prompt, plus a scope note when the view is filtered.
+
+    The callsigns themselves are deliberately NOT interpolated. They come from
+    the client request, and the system prompt is trusted text: a "callsign"
+    containing a newline and new instructions would otherwise be injected with
+    system-level authority. The restriction is enforced by the MongoDB query in
+    _scoped(), so the prompt only needs to say that a scope exists. The model
+    learns the unit names from tool results, which are untrusted data.
+    """
     if not callsigns:
         return _SYSTEM
     return (
-        f"{_SYSTEM}\n\nThis view is limited to these units: {', '.join(callsigns)}. "
-        "The data tools only return data for them, so do not mention or speculate "
-        "about other units."
+        f"{_SYSTEM}\n\nThis view is limited to a subset of units. The data tools "
+        "only return data for those units, so do not mention or speculate about "
+        "any others."
     )
 
 
@@ -409,7 +418,11 @@ class AskRequest(BaseModel):
     session_id: str | None = None
     # Optional unit scope (the Simulate view sends ["ALPHA", "BRAVO"]). When
     # set, every data tool only returns documents for these callsigns.
-    callsigns: list[str] | None = None
+    # Client-controlled: used only as values in a MongoDB $in filter, never in
+    # the prompt. Bounded so a caller can't send an arbitrarily large scope.
+    callsigns: (
+        list[Annotated[str, StringConstraints(min_length=1, max_length=128)]] | None
+    ) = Field(default=None, max_length=50)
 
 
 def _model_present(models: list[str], wanted: str) -> bool:

@@ -66,7 +66,11 @@ async def get_ditto_identity():
 
 
 @router.get("/ditto/qr")
-async def get_ditto_qr():
+def get_ditto_qr():
+    # Plain `def`, not `async def`: the cloud path makes blocking boto3 calls
+    # (get_object + StreamingBody.read) and the local path renders a PNG.
+    # FastAPI runs sync handlers in its threadpool, so a slow S3 request can't
+    # stall the dashboard's polling or the health probe.
     """Serve the ATAK Ditto-mesh join QR code.
 
     Two modes, picked automatically:

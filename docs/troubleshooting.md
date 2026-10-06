@@ -105,14 +105,17 @@ helm -n kafka list      # confirm the installed version
 
 Fix: `STRIMZI_VERSION=0.49.0` in `.env`, then `make reset && make setup`.
 
-### `kind create cluster` fails on ports 80/443
+### Preflight or `kind create cluster` fails on a port
 
-Something already listens there:
+kind publishes 80, 443, 27017 and 8080, and a conflict on any one of them stops
+the node container from starting. `preflight.sh` names the process holding the
+port; to check by hand:
 
 ```bash
-sudo lsof -iTCP:80 -P -sTCP:LISTEN
-sudo lsof -iTCP:443 -P -sTCP:LISTEN
+for p in 80 443 27017 8080; do sudo lsof -iTCP:$p -P -sTCP:LISTEN; done
 ```
+
+A local `mongod` on 27017 is a common one.
 
 Stop it, or edit `infra/k8s/kind-cluster.yaml`. Port mappings are fixed at
 creation, so changing them needs `make reset && make setup`.
@@ -268,7 +271,7 @@ Expected in two cases: no Big Peer API key was minted, or the attachment was
 lost to the in-memory backend after a pod restart.
 
 ```bash
-kubectl -n tak get secret tak-ditto -o jsonpath='{.data.DITTO_API_KEY}' | base64 -d; echo
+kubectl -n tak get secret tak-ditto -o jsonpath='{.data.DITTO_API_KEY}' | openssl base64 -d -A; echo
 ```
 
 If it prints `unset`, mint one by hand — the Operator API is unauthenticated, so
@@ -314,11 +317,12 @@ CPU-only inference (Docker Desktop has no GPU passthrough). The first question
 after a restart also pays the model load. If it's unusable, pick a smaller model:
 
 ```bash
-OLLAMA_MODEL=qwen2.5:3b make models
+echo 'OLLAMA_MODEL=qwen2.5:3b' >> .env
+make setup
 ```
 
-then set `LLM_MODEL` to match in `infra/local/backend.yaml` and
-`make rebuild`. Note smaller models are noticeably worse at tool calling, which
+`setup.sh` pulls the model and passes it to the backend as `LLM_MODEL`, so
+nothing else needs editing. Note smaller models are noticeably worse at tool calling, which
 this agent depends on entirely.
 
 ### Ollama pod `CrashLoopBackOff` / OOM

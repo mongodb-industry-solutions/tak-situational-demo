@@ -30,10 +30,10 @@ environment/
 .env.*
 **/.env
 **/.env.*
-*.pem
-*.key
-*.p12
-*.pfx
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
 
 # Byte-compiled files
 __pycache__

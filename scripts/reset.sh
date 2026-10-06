@@ -16,12 +16,17 @@
 # NOTE: a full reset regenerates the Ditto playground token and App-ID pairing
 # material, so any ATAK device will need to be re-paired. --soft preserves the
 # App ID but also regenerates the token.
-set -uo pipefail
+set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 # shellcheck source=scripts/lib.sh
 . "$ROOT/scripts/lib.sh"
+
+# Any unexpected failure aborts the reset and says so, rather than carrying on
+# and printing "reset complete" over a half-deleted stack. Steps that are
+# allowed to fail are explicitly guarded with `|| true` / `|| warn`.
+trap 'err "reset FAILED at line $LINENO — the stack may be partially reset. Fix the error above and re-run."' ERR
 
 if [ -f .env ]; then
   # shellcheck disable=SC1091
@@ -60,12 +65,23 @@ esac
 if [ "$SOFT" = 1 ]; then
   step "soft reset (keeping the cluster, Ops Manager and MongoDB EA)"
 
-  say "removing the Ditto data bridge, app and Big Peer…"
-  # Order matters: the bridge references the app, which references the Big Peer.
-  kubectl -n "$NS_DITTO" delete bigpeerdatabridge tak-mongo-connector --ignore-not-found --timeout=120s
-  kubectl -n "$NS_DITTO" delete bigpeerapikey tak-dashboard --ignore-not-found --timeout=60s
-  kubectl -n "$NS_DITTO" delete bigpeerapp tak-situational --ignore-not-found --timeout=120s
-  kubectl -n "$NS_DITTO" delete bigpeer tak --ignore-not-found --timeout=300s
+  # Fail fast with a clear message if the cluster isn't reachable at all,
+  # instead of erroring on the first delete.
+  kubectl cluster-info >/dev/null 2>&1 \
+    || die "cannot reach the cluster (is the kind cluster running? make status)"
+
+  # If the Ditto Operator was never installed its CRDs don't exist, so there is
+  # nothing to delete — that's not an error. Any failure past this check is.
+  if kubectl get crd bigpeers.ditto.live >/dev/null 2>&1; then
+    say "removing the Ditto data bridge, app and Big Peer…"
+    # Order matters: the bridge references the app, which references the Big Peer.
+    kubectl -n "$NS_DITTO" delete bigpeerdatabridge tak-mongo-connector --ignore-not-found --timeout=120s
+    kubectl -n "$NS_DITTO" delete bigpeerapikey tak-dashboard --ignore-not-found --timeout=60s
+    kubectl -n "$NS_DITTO" delete bigpeerapp tak-situational --ignore-not-found --timeout=120s
+    kubectl -n "$NS_DITTO" delete bigpeer tak --ignore-not-found --timeout=300s
+  else
+    say "Ditto Operator CRDs not installed — no Ditto resources to remove"
+  fi
 
   say "removing the app releases…"
   helm uninstall tak-situational-demo-backend  -n "$NS_APP" 2>/dev/null || true

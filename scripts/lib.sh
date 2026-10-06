@@ -126,7 +126,10 @@ spin_wait() {
 # Small shared helpers
 # ---------------------------------------------------------------------------
 # Decode a key out of a Kubernetes Secret (base64 -> plaintext).
-ksecret_val() { kubectl -n "$1" get secret "$2" -o jsonpath="{.data.$3}" 2>/dev/null | base64 -d; }
+# Uses `openssl base64 -d -A` rather than `base64 -d`: macOS 12 and earlier
+# only accept `base64 -D`, while openssl is already a required tool and
+# behaves the same everywhere. -A reads the single-line jsonpath output.
+ksecret_val() { kubectl -n "$1" get secret "$2" -o jsonpath="{.data.$3}" 2>/dev/null | openssl base64 -d -A; }
 
 # True when the EXACT Ollama model is present in the in-cluster pod.
 #

@@ -49,6 +49,9 @@ env:
   # gateway, so the panel works with no API key and no external account.
   LLM_PROVIDER: ollama
   OLLAMA_BASE_URL: http://ollama:11434
+  # Default only: scripts/setup.sh overrides this with OLLAMA_MODEL from .env
+  # (--set-string env.LLM_MODEL=...) so the backend waits for the model that
+  # was actually pulled.
   LLM_MODEL: qwen2.5:7b
   # CPU inference: allow a slow first answer while the model loads.
   LLM_TIMEOUT_SECONDS: "300"

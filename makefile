@@ -54,9 +54,9 @@ logs-mongodb:
 ## Reprint the ATAK pairing details (App ID, URLs, playground token).
 pair:
 	@echo "App ID:           $$(kubectl -n $(NS_DITTO) get bigpeerapp tak-situational -o jsonpath='{.spec.appId}' 2>/dev/null)"
-	@echo "Auth URL:         $$(kubectl -n $(NS_APP) get secret tak-ditto -o jsonpath='{.data.DITTO_AUTH_URL}' 2>/dev/null | base64 -d)"
-	@echo "Websocket URL:    $$(kubectl -n $(NS_APP) get secret tak-ditto -o jsonpath='{.data.DITTO_WS_URL}' 2>/dev/null | base64 -d)"
-	@echo "Playground token: $$(kubectl -n $(NS_APP) get secret tak-ditto -o jsonpath='{.data.DITTO_PLAYGROUND_TOKEN}' 2>/dev/null | base64 -d)"
+	@echo "Auth URL:         $$(kubectl -n $(NS_APP) get secret tak-ditto -o jsonpath='{.data.DITTO_AUTH_URL}' 2>/dev/null | openssl base64 -d -A)"
+	@echo "Websocket URL:    $$(kubectl -n $(NS_APP) get secret tak-ditto -o jsonpath='{.data.DITTO_WS_URL}' 2>/dev/null | openssl base64 -d -A)"
+	@echo "Playground token: $$(kubectl -n $(NS_APP) get secret tak-ditto -o jsonpath='{.data.DITTO_PLAYGROUND_TOKEN}' 2>/dev/null | openssl base64 -d -A)"
 
 ## Rebuild both images, load them into kind and restart the deployments.
 ## Use this after a code change instead of a full `make setup`.

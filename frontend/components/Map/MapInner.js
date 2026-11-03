@@ -156,6 +156,22 @@ function CursorManager({ mode, placing }) {
   return null;
 }
 
+// ── Dark fallback basemap ─────────────────────────────────────────────────────
+// The local stack ships no CARTO key, so the map falls back to OpenStreetMap —
+// a bright basemap that fights the dashboard's dark theme. Invert the tile pane
+// into a dark map (the standard CSS dark-map trick). CARTO's own dark_all style
+// is used whenever a key is configured, so this only ever applies to the
+// fallback. See .tak-dark-basemap in app/globals.css.
+function DarkFallbackBasemap({ enabled }) {
+  const map = useMap();
+  useEffect(() => {
+    const el = map.getContainer();
+    el.classList.toggle("tak-dark-basemap", enabled);
+    return () => el.classList.remove("tak-dark-basemap");
+  }, [map, enabled]);
+  return null;
+}
+
 // ── Click-to-place handler ────────────────────────────────────────────────────
 function MarkerPlacer({ active, onMapClick }) {
   useMapEvents({
@@ -384,6 +400,7 @@ export default function MapInner({ tracks, mapitems, alerts, photoFiles, isStale
           />
         )}
         <CursorManager mode={mapMode} placing={placing} />
+        <DarkFallbackBasemap enabled={!cartoApiKey} />
 
         {tracks.map((track) => {
           if (track.j == null || track.l == null) return null;

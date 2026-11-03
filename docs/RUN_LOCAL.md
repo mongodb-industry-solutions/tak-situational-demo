@@ -45,20 +45,25 @@ OpenStreetMap basemap tiles.
 
 kind publishes these, fixed at cluster creation:
 
-| Host port | Goes to              | Used for                                |
-| --------- | -------------------- | --------------------------------------- |
-| 80, 443   | ingress-nginx        | the dashboard, and the Big Peer ingress |
-| 27017     | MongoDB NodePort     | Compass / `mongosh`                     |
-| 8080      | Ops Manager NodePort | Ops Manager web UI                      |
+| Host port  | Goes to              | Used for                                |
+| ---------- | -------------------- | --------------------------------------- |
+| 80, 443    | ingress-nginx        | the dashboard, and the Big Peer ingress |
+| 8000, 8443 | ingress-nginx        | non-privileged alias for ATAK pairing   |
+| 27017      | MongoDB NodePort     | Compass / `mongosh`                     |
+| 8080       | Ops Manager NodePort | Ops Manager web UI                      |
 
-**All four ports must be free** before the cluster is created. kind publishes
+`:8000`/`:8443` serve the _same_ ingress-nginx as `:80`/`:443`. ATAK devices pair
+against the Big Peer over `:8000` because some macOS/Docker setups reset inbound
+LAN connections to the privileged ports — see "Pairing an ATAK device".
+
+**All six ports must be free** before the cluster is created. kind publishes
 every mapping when it creates the node container, so a conflict on _any_ of
 them stops the cluster from starting — not just the one service.
-`preflight.sh` checks all four and stops with the offending process if one is
+`preflight.sh` checks all six and stops with the offending process if one is
 taken. To check by hand:
 
 ```bash
-for p in 80 443 27017 8080; do sudo lsof -iTCP:$p -P -sTCP:LISTEN; done
+for p in 80 443 8000 8443 27017 8080; do sudo lsof -iTCP:$p -P -sTCP:LISTEN; done
 ```
 
 Usual culprits: a local nginx/Apache/Caddy or another container on `:80`, a
@@ -198,12 +203,13 @@ on-prem uses, showing the automation agent and deployment topology.
 
 ## Pairing an ATAK device
 
-> ⚠️ **Not yet verified end to end.** The Big Peer, the App and the connector
-> are all confirmed working, and the dashboard produces the identity values. What
-> has **not** been confirmed on a physical device is the exact payload the ATAK
-> Ditto Edge Sync plugin expects from a scanned QR code. Treat the QR as
-> best-effort and the typed values as the dependable path. Please update this
-> section once validated on hardware.
+> **The QR must be a PDL (Peer Ditto License), not a plain JSON identity.** The
+> plugin's `IdentityParserV2` expects `urlsafe_base64(zlib(json))` carrying its
+> `TakDittoLicenseV2` fields (`lt/v/o/id/cr/e/t/it/a/ch`, plus `au`/`wu` for the
+> self-hosted URLs). `backend/routers/ditto.py` builds that from the Big Peer
+> values, so **Add Device** serves a QR in the right format — the plugin parses
+> it and logs the correct app id, auth URL and provider. If a scan is refused,
+> type the same four values in by hand: identical data, dependable path.
 
 ### What you need
 
@@ -229,10 +235,14 @@ on-prem uses, showing the automation agent and deployment topology.
 
    ```
    App ID:           7a9f1c4e-2b6d-4f83-9c15-8e0d3a5b7f42
-   Auth URL:         http://ditto.192.168.1.23.nip.io
-   Websocket URL:    ws://ditto.192.168.1.23.nip.io
+   Auth URL:         http://ditto.192.168.1.23.nip.io:8000
+   Websocket URL:    ws://ditto.192.168.1.23.nip.io:8000
    Playground token: <generated>
    ```
+
+   The `:8000` is deliberate — it is the non-privileged alias of the ingress
+   (see "Host ports"). Some macOS/Docker setups reset inbound LAN connections
+   to `:80`/`:443`, which is why pairing targets `:8000`.
 
 3. In ATAK → the **Ditto** plugin → scan the QR, or enter the values manually.
 4. **Disable "sync to Ditto Cloud" in the plugin.** This matters: a Small Peer
@@ -255,12 +265,18 @@ and the pairing values.
 ### If a device can't connect
 
 ```bash
-# Is the Big Peer ingress answering on the LAN address?
-curl -sI "http://$(kubectl -n ditto get ingress -o jsonpath='{.items[0].spec.rules[0].host}')" | head -1
+# Is the Big Peer ingress answering on the LAN address, on the pairing port?
+host="$(kubectl -n ditto get ingress -o jsonpath='{.items[0].spec.rules[0].host}')"
+curl -sI "http://${host}:8000" | head -1
 ```
 
 Then check: phone on the same Wi-Fi (not cellular), client isolation / "guest
 network" off on the router, and the macOS firewall not blocking Docker.
+
+If `:8000` resets but `:8080` answers, the plugin will log
+`Connection reset by peer` and show "Ditto not activated" — see
+`docs/troubleshooting.md` → "A device scans the QR but shows Ditto not
+activated".
 
 ---
 

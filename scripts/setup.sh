@@ -64,6 +64,10 @@ OLLAMA_MODEL="${OLLAMA_MODEL:-qwen2.5:7b}"
 # Host ports published by kind — must match infra/k8s/kind-cluster.yaml.
 HOST_MONGO_PORT=27017
 HOST_OM_PORT=8080
+# Non-privileged alias for the Big Peer ingress. Docker Desktop on macOS resets
+# inbound LAN connections to the privileged :80/:443 on some machines, so ATAK
+# devices pair over this port instead. Must match infra/k8s/kind-cluster.yaml.
+BIG_PEER_HOST_PORT=8000
 # Local-only port used to reach the (unauthenticated) Ditto Operator API.
 OPERATOR_API_PORT="${OPERATOR_API_PORT:-18081}"
 
@@ -423,8 +427,8 @@ fi
 kubectl -n "$NS_APP" create secret generic tak-ditto \
   --from-literal=DITTO_URL_EP="$DITTO_URL_EP" \
   --from-literal=DITTO_API_KEY="$DITTO_API_KEY" \
-  --from-literal=DITTO_AUTH_URL="http://${BIG_PEER_HOST}" \
-  --from-literal=DITTO_WS_URL="ws://${BIG_PEER_HOST}" \
+  --from-literal=DITTO_AUTH_URL="http://${BIG_PEER_HOST}:${BIG_PEER_HOST_PORT}" \
+  --from-literal=DITTO_WS_URL="ws://${BIG_PEER_HOST}:${BIG_PEER_HOST_PORT}" \
   --from-literal=DITTO_PLAYGROUND_TOKEN="$DITTO_PLAYGROUND_TOKEN" \
   --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 ok "wrote tak-ditto ($NS_APP)"
@@ -542,8 +546,8 @@ cat <<EOF
 
   ${C_BOLD}4) Pair an ATAK device (Ditto OnlinePlayground)${C_RESET}
      App ID:         ${C_CYAN}${DITTO_APP_ID}${C_RESET}
-     Auth URL:       ${C_CYAN}http://${BIG_PEER_HOST}${C_RESET}
-     Websocket URL:  ${C_CYAN}ws://${BIG_PEER_HOST}${C_RESET}
+     Auth URL:       ${C_CYAN}http://${BIG_PEER_HOST}:${BIG_PEER_HOST_PORT}${C_RESET}
+     Websocket URL:  ${C_CYAN}ws://${BIG_PEER_HOST}:${BIG_PEER_HOST_PORT}${C_RESET}
      Playground token: ${C_CYAN}${DITTO_PLAYGROUND_TOKEN}${C_RESET}
      ${C_GREY}The phone must be on this Wi-Fi. "Add Device" in the dashboard shows the
      same values as a QR code. Cloud sync must be DISABLED in the plugin so it

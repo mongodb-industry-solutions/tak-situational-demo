@@ -144,6 +144,34 @@ Work outwards from the device:
    kubectl -n ditto logs -l ditto.live/app=tak-situational
    ```
 
+### A device scans the QR but shows "Ditto not activated" (never syncs)
+
+The plugin read the identity but could not authenticate against the Big Peer.
+Its own log is explicit:
+
+```bash
+adb logcat -d | grep -E 'Ditto|TakDittoLicense|IdentityParser' | tail -30
+```
+
+- `identity=OnlinePlayground { app_id: …, base_url: http://ditto.<ip>.nip.io:8000, provider: "__playgroundProvider" }` → the QR was parsed correctly.
+- `get_challenge: … Connection reset by peer` → the host will not accept **inbound LAN connections on that port**.
+
+Docker Desktop on macOS resets inbound LAN connections to _privileged_ published
+ports (`:80`/`:443`) on some machines — even though `lsof` shows `*:80 (LISTEN)`,
+and even with the macOS firewall and Cloudflare WARP ruled out. Non-privileged
+ports (`:8080`, `:8000`, `:27017`) are unaffected. Confirm from the phone:
+
+```bash
+# works (Docker NodePort on a non-privileged port)
+adb shell 'printf "GET / HTTP/1.0\r\nHost: x\r\n\r\n" | toybox nc -w 5 <LAN-IP> 8080' | head -1
+# resets (Docker privileged port)
+adb shell 'printf "GET / HTTP/1.0\r\nHost: x\r\n\r\n" | toybox nc -w 5 <LAN-IP> 80'   | head -1
+```
+
+That is why pairing targets `:8000` — the non-privileged alias of the ingress
+(`infra/k8s/kind-cluster.yaml`). If `make pair` still prints a bare `:80` URL,
+the cluster predates that mapping: `make reset && make setup`.
+
 ### Connector won't start: "must be configured with changeStreamPreAndPostImages enabled"
 
 The connector refuses to run unless every synced collection has pre/post images.

@@ -29,18 +29,19 @@ ok "kind + kubectl + helm + openssl + curl + python3 + lsof"
 # Ollama runs in-cluster (infra/k8s/ollama/ollama.yaml) — no host install needed.
 
 # ---- host ports -----------------------------------------------------------
-# kind maps host :80/:443 (ingress) and :27017/:8080 (MongoDB / Ops Manager)
-# as extraPortMappings. Docker publishes ALL of them when it creates the node
-# container, so a conflict on ANY one stops the cluster from starting at all —
-# it doesn't merely lose host access to that one service. All four are
-# therefore fatal. Skip entirely once the cluster exists — the listener IS the
-# kind node at that point, so the check would be a false positive.
+# kind maps host :80/:443 + :8000/:8443 (ingress; privileged + non-privileged)
+# and :27017/:8080 (MongoDB / Ops Manager) as extraPortMappings. Docker
+# publishes ALL of them when it creates the node container, so a conflict on ANY
+# one stops the cluster from starting at all — it doesn't merely lose host
+# access to that one service. All are therefore fatal. Skip entirely once the
+# cluster exists — the listener IS the kind node at that point, so the check
+# would be a false positive.
 CLUSTER="${KIND_CLUSTER:-tak-situational-demo}"
 if kind get clusters 2>/dev/null | grep -qx "$CLUSTER"; then
   ok "host ports (skipped — kind cluster already exists)"
 else
   busy=()
-  for port in 80 443 27017 8080; do
+  for port in 80 443 8000 8443 27017 8080; do
     if lsof -iTCP:"$port" -P -sTCP:LISTEN >/dev/null 2>&1; then
       busy+=("$port")
       err "port $port is in use: $(lsof -iTCP:"$port" -P -sTCP:LISTEN 2>/dev/null | awk 'NR==2{print $1" (pid "$2")"}')"
@@ -49,7 +50,7 @@ else
   if [ "${#busy[@]}" -gt 0 ]; then
     die "kind cannot create the cluster while ports ${busy[*]} are taken — stop those processes, or remap them in infra/k8s/kind-cluster.yaml"
   fi
-  ok "ports 80, 443, 27017, 8080 free"
+  ok "ports 80, 443, 8000, 8443, 27017, 8080 free"
 fi
 
 # ---- RAM ------------------------------------------------------------------

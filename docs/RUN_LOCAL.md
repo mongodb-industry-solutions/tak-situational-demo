@@ -203,13 +203,15 @@ on-prem uses, showing the automation agent and deployment topology.
 
 ## Pairing an ATAK device
 
+> **Verified on hardware** (ATAK CIV 5.6 + the Ditto Edge Sync plugin): the
+> device pairs, its PLI reaches MongoDB, and it appears on the map.
+>
 > **The QR must be a PDL (Peer Ditto License), not a plain JSON identity.** The
 > plugin's `IdentityParserV2` expects `urlsafe_base64(zlib(json))` carrying its
 > `TakDittoLicenseV2` fields (`lt/v/o/id/cr/e/t/it/a/ch`, plus `au`/`wu` for the
 > self-hosted URLs). `backend/routers/ditto.py` builds that from the Big Peer
-> values, so **Add Device** serves a QR in the right format — the plugin parses
-> it and logs the correct app id, auth URL and provider. If a scan is refused,
-> type the same four values in by hand: identical data, dependable path.
+> values, so **Add Device** serves a QR in the right format. If a scan is ever
+> refused, type the same four values in by hand: identical data.
 
 ### What you need
 

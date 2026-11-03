@@ -1,6 +1,7 @@
 # CLAUDE.md — TAK Situational Demo
 
 ## SECURITY RULES
+
 - NEVER read, output, or search inside `.env` or `.env.*` files.
 - STOP immediately if you encounter API keys, credentials, passwords, or tokens.
 - Do not execute commands like `printenv`, `env`, `kubectl`, `helm` or `cat .env`.
@@ -181,9 +182,12 @@ APKs, and the ATAK CIV SDK checkout. **Never** move anything from there into
 
 ## Open Items
 
-- **ATAK ↔ self-hosted Big Peer pairing is unverified on hardware.** The QR
-  payload format the plugin expects hasn't been confirmed; typed entry is the
-  reliable path. See `docs/RUN_LOCAL.md#pairing-an-atak-device`.
+- **ATAK ↔ self-hosted Big Peer pairing is verified on hardware.** The QR must
+  encode a PDL (Peer Ditto License) — `urlsafe_base64(zlib(json))` with the
+  plugin's `TakDittoLicenseV2` fields — which `backend/routers/ditto.py`
+  generates. Pairing targets the Big Peer ingress on the non-privileged `:8000`,
+  because some macOS/Docker setups reset inbound LAN connections to `:80`/`:443`.
+  See `docs/RUN_LOCAL.md#pairing-an-atak-device`.
 - **Attachments are ephemeral locally** (Big Peer in-memory backend) — photo
   thumbnails are lost when the API pod restarts.
 - **`/simulate` + `routers/genymotion.py` are paused work** (Genymotion PaaS

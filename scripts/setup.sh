@@ -365,7 +365,7 @@ if [ -n "$EXISTING_KEY" ] && kubectl -n "$NS_DITTO" get bigpeerapikey tak-dashbo
   DITTO_API_KEY="$EXISTING_KEY"
   ok "reusing the existing API key"
 else
-  say "port-forwarding the Operator API on :$OPERATOR_API_PORT…"
+  say "port-forwarding the Operator API on :${OPERATOR_API_PORT}…"
   # The Operator API has NO authentication, so it is never published to the
   # host — a short-lived port-forward keeps it loopback-only.
   kubectl -n "$NS_DITTO" port-forward deployment/ditto-operator "${OPERATOR_API_PORT}:8080" >/dev/null 2>&1 &
@@ -436,7 +436,22 @@ if [ "${OLLAMA_SKIP:-0}" = "1" ]; then
 else
   kubectl apply -f infra/k8s/ollama/ollama.yaml >/dev/null
   ollama_ready() { kubectl -n "$NS_APP" get deploy ollama -o jsonpath='{.status.readyReplicas}' 2>/dev/null | grep -q '^1'; }
-  spin_wait "ollama" 300 5 -- ollama_ready || warn "ollama not ready — kubectl -n $NS_APP logs deploy/ollama"
+  # Live status for the spinner: surface the real state (image pull / scheduling
+  # / container creating) so a slow first-run pull is visible, not a bare wait.
+  ollama_status() {
+    local pod phase reason
+    pod="$(kubectl -n "$NS_APP" get pods -l app=ollama -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)"
+    [ -z "$pod" ] && { echo "scheduling"; return 0; }
+    phase="$(kubectl -n "$NS_APP" get pod "$pod" -o jsonpath='{.status.phase}' 2>/dev/null)"
+    reason="$(kubectl -n "$NS_APP" get pod "$pod" -o jsonpath='{.status.containerStatuses[0].state.waiting.reason}' 2>/dev/null)"
+    echo "${reason:-${phase:-starting}}"
+  }
+  # The ollama/ollama image is several GB; on a first run the image pull alone
+  # can exceed 5 min, so allow a generous window (override with
+  # OLLAMA_READY_TIMEOUT). A short wait here used to abort with a misleading
+  # "timed out" while the pull was still in flight.
+  spin_wait "ollama" "${OLLAMA_READY_TIMEOUT:-900}" 5 --status ollama_status -- ollama_ready \
+    || warn "ollama not ready — kubectl -n $NS_APP logs deploy/ollama"
 fi
 
 # ===========================================================================
@@ -498,8 +513,10 @@ if [ "${OLLAMA_SKIP:-0}" = "1" ]; then
 elif ollama_model_present "$NS_APP" "$OLLAMA_MODEL"; then
   ok "$OLLAMA_MODEL already present"
 else
-  ( "$ROOT/scripts/pull-models.sh" ) >/tmp/tak-ollama-pull.log 2>&1 &
-  say "pulling in the background → /tmp/tak-ollama-pull.log (the AI panel 503s until it finishes)"
+  # Blocking pull so setup only finishes once the AI panel is actually usable —
+  # otherwise the first questions 503 until the (multi-GB) pull completes.
+  say "pulling $OLLAMA_MODEL into the cluster (can take several minutes)…"
+  "$ROOT/scripts/pull-models.sh" || warn "model pull failed — run: bash scripts/pull-models.sh"
 fi
 
 # ===========================================================================

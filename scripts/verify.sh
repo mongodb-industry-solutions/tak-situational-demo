@@ -7,8 +7,9 @@
 #   ingress -> frontend -> backend -> MongoDB EA -> Ditto Big Peer
 #           -> MongoDB Connector -> (round-trip: Mongo write visible in Ditto)
 #
-# Exits non-zero if a REQUIRED check fails. Checks that depend on optional
-# pieces (Ollama model, ATAK devices, attachments) are reported as WARN.
+# Exits non-zero if a REQUIRED check fails. The AI panel is required unless
+# OLLAMA_SKIP=1 (setup.sh pulls the model synchronously); checks that depend on
+# truly optional pieces (ATAK devices, attachments) are reported as WARN.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -216,16 +217,24 @@ else
 fi
 
 # ===========================================================================
-step "AI panel (optional)"
+step "AI panel"
 
 if [ "${OLLAMA_SKIP:-0}" = "1" ]; then
   say "OLLAMA_SKIP=1 — the AI panel is intentionally disabled"
 else
   OLLAMA_MODEL="${OLLAMA_MODEL:-qwen2.5:7b}"
+  # setup.sh pulls the model synchronously, so a missing model is a real failure,
+  # not "still downloading". Allow a short grace window in case verify races a
+  # manual `pull-models.sh`, then fail.
+  _deadline=$(( SECONDS + ${VERIFY_OLLAMA_TIMEOUT:-60} ))
+  while ! ollama_model_present "$NS_APP" "$OLLAMA_MODEL"; do
+    [ "$SECONDS" -ge "$_deadline" ] && break
+    sleep 5
+  done
   if ollama_model_present "$NS_APP" "$OLLAMA_MODEL"; then
     ok "$OLLAMA_MODEL present in the Ollama pod"
   else
-    warn "$OLLAMA_MODEL not pulled yet — the AI panel will 503 (tail /tmp/tak-ollama-pull.log)"
+    fail "$OLLAMA_MODEL missing — run: bash scripts/pull-models.sh"
   fi
 fi
 

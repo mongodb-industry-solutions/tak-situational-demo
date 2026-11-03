@@ -19,12 +19,12 @@ OpenStreetMap basemap tiles.
 
 ### Tools
 
-| Tool                            | Install                                          |
-| ------------------------------- | ------------------------------------------------ |
-| Docker Desktop ≥ 24 (or Engine) | <https://docs.docker.com/get-docker/>            |
-| `kind`                          | `brew install kind` · <https://kind.sigs.k8s.io> |
-| `kubectl`                       | `brew install kubectl`                           |
-| `helm`                          | `brew install helm`                              |
+| Tool                                 | Install                                                                    |
+| ------------------------------------ | -------------------------------------------------------------------------- |
+| Docker Desktop ≥ 24 (or Engine)      | <https://docs.docker.com/get-docker/>                                      |
+| `kind`                               | `brew install kind` · <https://kind.sigs.k8s.io>                           |
+| `kubectl`                            | `brew install kubectl`                                                     |
+| `helm`                               | `brew install helm`                                                        |
 | `openssl`, `curl`, `python3`, `lsof` | ship with macOS; on Linux, `lsof` may need installing (`apt install lsof`) |
 
 ### Hardware
@@ -52,7 +52,7 @@ kind publishes these, fixed at cluster creation:
 | 8080      | Ops Manager NodePort | Ops Manager web UI                      |
 
 **All four ports must be free** before the cluster is created. kind publishes
-every mapping when it creates the node container, so a conflict on *any* of
+every mapping when it creates the node container, so a conflict on _any_ of
 them stops the cluster from starting — not just the one service.
 `preflight.sh` checks all four and stops with the offending process if one is
 taken. To check by hand:
@@ -124,10 +124,10 @@ are never rotated on a re-run, so a paired device stays paired.
 | Ditto App             | `BigPeerApp` with a fixed App ID                    | instant        |
 | **MongoDB Connector** | `BigPeerDataBridge` — starts syncing                | ~1–2 min       |
 | Big Peer API key      | Minted via the Operator API, then persisted         | ~15 s          |
-| Ollama                | Deployment + PVC + Service                          | ~60 s          |
+| Ollama                | Deployment + PVC + Service (+ image on first run)   | ~1–6 min       |
 | Docker builds         | Backend + frontend images, loaded into kind         | ~2–4 min       |
 | Helm releases         | Backend + frontend via `mongodb/web-app`            | ~60 s          |
-| Model pull (bg)       | `qwen2.5:7b` → `/tmp/tak-ollama-pull.log`           | ~5–10 min      |
+| Model pull            | `qwen2.5:7b` into the cluster (synchronous)         | ~5–10 min      |
 
 Total: **~25–35 minutes** on a first run; Ops Manager dominates.
 
@@ -144,7 +144,10 @@ connector → HTTP surface → **a live MongoDB → Ditto round-trip** (writes a
 document into MongoDB and reads it back through the Big Peer HTTP API with DQL,
 then cleans up) → the AI panel.
 
-Optional pieces (the Ollama model, attachments) report `WARN`, not failure.
+The AI panel is a required check — `setup.sh` pulls the model synchronously, so
+a missing model is a real failure. Truly optional pieces (ATAK devices,
+attachments) report `WARN`, not failure. Run with `OLLAMA_SKIP=1` to make the AI
+panel optional too.
 
 ### 4. Open the dashboard
 
@@ -343,8 +346,8 @@ collection persists either way; only the binaries are affected.
 
 Docker Desktop on macOS gives containers no Metal/GPU passthrough, so Ollama
 runs on CPU — expect several seconds per answer, and a slow first answer while
-the model loads into memory. The panel hides itself until the model has
-downloaded, and the rest of the dashboard never waits on it.
+the model loads into memory. `setup.sh` pulls the model synchronously, so the
+panel is ready when setup ends; the rest of the dashboard never waits on it.
 
 ### `changeStreamPreAndPostImages` is mandatory
 

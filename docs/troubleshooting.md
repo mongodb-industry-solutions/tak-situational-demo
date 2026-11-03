@@ -305,9 +305,12 @@ curl -s http://localhost/api/systemai/status
 
 - `{"enabled": false, ...}` → neither `OLLAMA_BASE_URL` nor `LLM_API_KEY` is set
   (e.g. you ran with `OLLAMA_SKIP=1`).
-- `{"enabled": true, "ready": false}` → the model is still downloading:
+- `{"enabled": true, "ready": false}` → the configured model isn't in Ollama.
+  `setup.sh` pulls it synchronously, so this usually means the pull failed (the
+  `ollama — timed out` case below) or you're pointing at a model that was never
+  pulled:
   ```bash
-  tail -f /tmp/tak-ollama-pull.log
+  bash scripts/pull-models.sh
   kubectl -n tak exec deploy/ollama -- ollama list
   ```
 
@@ -324,6 +327,23 @@ make setup
 `setup.sh` pulls the model and passes it to the backend as `LLM_MODEL`, so
 nothing else needs editing. Note smaller models are noticeably worse at tool calling, which
 this agent depends on entirely.
+
+### `setup.sh` reports `ollama — timed out`
+
+The readiness wait is generous (900 s; override with `OLLAMA_READY_TIMEOUT`), but
+a cold first run also pulls the multi-gigabyte `ollama/ollama` image, which on a
+slow connection can outlast even that. The spinner shows the live pod state
+(`ContainerCreating`, `PodInitializing`, …). Setup carries on regardless, but
+the synchronous model pull at the end needs the pod ready — if it is still
+starting, that pull is skipped with a warning. Check where it actually is:
+
+```bash
+kubectl -n tak get pods -l app=ollama
+kubectl -n tak describe deploy/ollama
+```
+
+Once the image is cached, a re-run of `make setup` brings it up in seconds and
+pulls the model.
 
 ### Ollama pod `CrashLoopBackOff` / OOM
 

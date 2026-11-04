@@ -32,7 +32,7 @@ are never baked into the client bundle.
 | Variable          | Default                 | Purpose                                                                                                |
 | ----------------- | ----------------------- | ------------------------------------------------------------------------------------------------------ |
 | `BACKEND_URL`     | `http://localhost:8000` | FastAPI base URL for the `/api/*` proxy routes                                                         |
-| `CARTO_API_KEY`   | _(unset)_               | CARTO dark basemap. Falls back to OpenStreetMap tiles when unset.                                      |
+| `CARTO_API_KEY`   | _(unset)_               | CARTO dark basemap. When unset, falls back to OpenStreetMap tiles styled dark to match the dashboard.  |
 | `ENABLE_SIMULATE` | `false`                 | Shows the paused Genymotion "Simulate" view. Read by the **backend** and surfaced via `/api/features`. |
 
 `cp .env.example .env.local` if you want to set `CARTO_API_KEY` locally.

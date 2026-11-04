@@ -43,7 +43,8 @@ env:
   # with no NEXT_PUBLIC_* baked in at build time.
   BACKEND_URL: http://tak-situational-demo-backend-web-app-80
   NODE_ENV: production
-  # No CARTO_API_KEY locally — the map falls back to OpenStreetMap tiles.
+  # No CARTO_API_KEY locally — the map falls back to OpenStreetMap tiles, which
+  # MapInner styles dark to match the dashboard (see DarkFallbackBasemap).
   #
   # ENABLE_SIMULATE is deliberately NOT set here: it is read by the BACKEND and
   # reported to the browser via GET /api/features, so there is exactly one place

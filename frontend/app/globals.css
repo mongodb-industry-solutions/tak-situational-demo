@@ -19,3 +19,16 @@ html, body {
   50%       { box-shadow: 0 0 0 4px rgba(239,68,68,0); }
 }
 
+/* Dark fallback basemap — the local stack has no CARTO key, so the map falls
+   back to OpenStreetMap, which is far too bright for the dashboard. Invert the
+   tile pane into a dark map (the standard CSS dark-map trick). Scoped to the
+   tile pane only, so markers, tooltips and controls keep their own colours.
+   CARTO's own dark_all style is used whenever a key is configured, so this
+   class is only applied by MapInner when it is NOT — see DarkFallbackBasemap. */
+.tak-dark-basemap {
+  background: #111827;
+}
+.tak-dark-basemap .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.7);
+}
+

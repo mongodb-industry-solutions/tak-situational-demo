@@ -29,12 +29,10 @@ def _local_identity() -> dict | None:
     # Field names follow the Ditto quickstart .env contract (DITTO_APP_ID,
     # DITTO_PLAYGROUND_TOKEN, DITTO_AUTH_URL, DITTO_WEBSOCKET_URL).
     #
-    # NOTE (unverified): the exact payload the ATAK Ditto Edge Sync plugin
-    # expects from a scanned QR has not been confirmed against a device. The
-    # plugin may well expect a different shape, in which case enter these
-    # values by hand in the plugin's settings instead — /api/ditto/identity
-    # returns the same data as JSON for that purpose.
-    # See docs/RUN_LOCAL.md ("Pairing an ATAK device").
+    # These values are the *inputs* to the pairing material: the QR must encode
+    # a PDL (Peer Ditto License), not this JSON — see _encode_pdl(). The same
+    # dict is still served by /api/ditto/identity for typing the values into the
+    # plugin by hand. See docs/RUN_LOCAL.md ("Pairing an ATAK device").
     return {
         "appId": app_id,
         "playgroundToken": token,
@@ -45,6 +43,76 @@ def _local_identity() -> dict | None:
         # The plugin must not fall back to Ditto Cloud for sync.
         "enableDittoCloudSync": False,
     }
+
+
+# ---------------------------------------------------------------------------
+# PDL (Peer Ditto License) — what the ATAK plugin's QR actually has to contain.
+#
+# The plugin (com.dittofederal.atak.plugin) does NOT accept a plain identity
+# JSON. Its IdentityParserV2 expects a PDL: urlsafe_base64(zlib(json)) whose
+# keys map 1:1 to the plugin's TakDittoLicenseV2 fields:
+#
+#   lt=PDL  v=2  o=org  id=licenseId  cr=created(ms)  e=expires(ms)  co=count
+#   p=[products]  f={features}  t=token  it=OP|SK  a=appId  ch=checksum
+#   wu=websocketUrl  au=authUrl
+#
+# `it: "OP"` (OnlinePlayground) plus au/wu is how a self-hosted Big Peer is
+# addressed. The plugin's checksum check is non-enforcing (it only logs), so the
+# CRC below is computed for correctness rather than as a gate.
+# ---------------------------------------------------------------------------
+
+_PDL_EXPIRES_MS = 4102444800000  # 2100-01-01T00:00:00Z
+
+
+def _pdl_checksum(payload: dict) -> int:
+    """CRC32 over the license fields, mirroring the plugin's calcCrc()."""
+    import binascii
+    import struct
+
+    def le32(n: int) -> bytes:
+        return struct.pack("<I", n & 0xFFFFFFFF)
+
+    def le64(n: int) -> bytes:
+        return struct.pack("<Q", n & 0xFFFFFFFFFFFFFFFF)
+
+    crc = binascii.crc32(payload["lt"].encode())
+    crc = binascii.crc32(le32(payload["v"]), crc)
+    crc = binascii.crc32(payload["o"].encode(), crc)
+    crc = binascii.crc32(payload["id"].encode(), crc)
+    crc = binascii.crc32(le64(payload["cr"]), crc)
+    crc = binascii.crc32(le64(payload["e"]), crc)
+    crc = binascii.crc32(le32(payload["co"]), crc)
+    crc = binascii.crc32(payload["t"].encode(), crc)
+    crc = binascii.crc32(payload["it"].encode(), crc)
+    crc = binascii.crc32(payload["a"].encode(), crc)
+    return crc & 0xFFFFFFFF
+
+
+def _encode_pdl(identity: dict) -> str:
+    """Encode an identity as the PDL text a scanned ATAK QR must contain."""
+    import base64
+    import time
+    import zlib
+
+    payload = {
+        "lt": "PDL",
+        "v": 2,
+        "o": os.getenv("DITTO_PDL_ORG", "MongoDB Industry Solutions"),
+        "id": os.getenv("DITTO_PDL_ID", identity["appId"]),
+        "cr": int(time.time() * 1000),
+        "e": _PDL_EXPIRES_MS,
+        "co": 1,
+        "p": ["ATAK"],
+        "f": {},
+        "t": identity["playgroundToken"],
+        "it": "OP",
+        "a": identity["appId"],
+        "wu": identity["websocketUrl"],
+        "au": identity["authUrl"],
+    }
+    payload["ch"] = _pdl_checksum(payload)
+    raw = json.dumps(payload, separators=(",", ":")).encode()
+    return base64.urlsafe_b64encode(zlib.compress(raw)).decode()
 
 
 @router.get("/ditto/identity")
@@ -96,9 +164,10 @@ def get_ditto_qr():
                 detail="qrcode not installed — run `make uv_sync` (or use /api/ditto/identity)",
             )
 
-        # compact separators keep the payload small, which keeps the QR
-        # low-density and therefore easy for a phone camera to read.
-        payload = json.dumps(identity, separators=(",", ":"))
+        # The plugin rejects a plain identity JSON — the QR has to carry a PDL.
+        # Compact separators keep it small, which keeps the QR low-density and
+        # therefore easy for a phone camera to read.
+        payload = _encode_pdl(identity)
         img = qrcode.make(payload)
 
         import io

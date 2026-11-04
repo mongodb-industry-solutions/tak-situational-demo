@@ -59,11 +59,12 @@ Apply order matters and is enforced by `setup.sh`:
 kind `extraPortMappings` (in `kind-cluster.yaml`) publish these to the host —
 **fixed at cluster creation**, so changing them needs `make reset && make setup`:
 
-| Host port | NodePort | Service                        | Use                                         |
-| --------- | -------- | ------------------------------ | ------------------------------------------- |
-| 80 / 443  | —        | ingress-nginx                  | dashboard + the Big Peer ingress            |
-| 27017     | 30017    | `tak-mongodb-ext` (ns mongodb) | Compass / mongosh (`directConnection=true`) |
-| 8080      | 30080    | `ops-manager-ext` (ns mongodb) | Ops Manager web UI                          |
+| Host port | NodePort | Service                         | Use                                           |
+| --------- | -------- | ------------------------------- | --------------------------------------------- |
+| 80 / 443  | —        | ingress-nginx                   | dashboard + the Big Peer ingress              |
+| 8000/8443 | —        | ingress-nginx (same controller) | ATAK pairing — non-privileged alias of 80/443 |
+| 27017     | 30017    | `tak-mongodb-ext` (ns mongodb)  | Compass / mongosh (`directConnection=true`)   |
+| 8080      | 30080    | `ops-manager-ext` (ns mongodb)  | Ops Manager web UI                            |
 
 The MongoDB and Ops Manager NodePorts are **separate** Services selecting the
 operator-owned pods — we never modify the operator's own headless Services. The

@@ -11,6 +11,11 @@
 #                        • http://ditto.<LAN-IP>.nip.io      -> Ditto Big Peer
 #                          (the Big Peer Ingress is created by the Ditto
 #                           Operator from BigPeer.spec.network.ingress.host)
+#   host :8000/:8443 -> the SAME ingress-nginx, on non-privileged ports. Some
+#                        macOS/Docker setups reset inbound LAN connections to
+#                        the privileged :80/:443, so ATAK devices pair against
+#                        the Big Peer over :8000. Keep in step with
+#                        BIG_PEER_HOST_PORT in scripts/setup.sh.
 #   host :27017      -> NodePort 30017 -> MongoDB    (Compass / mongosh)
 #   host :8080       -> NodePort 30080 -> Ops Manager web UI
 #
@@ -37,6 +42,15 @@ nodes:
         protocol: TCP
       - containerPort: 443
         hostPort: 443
+        protocol: TCP
+      # Same ingress-nginx, non-privileged host ports (see the header). ATAK
+      # devices pair over :8000 — Docker Desktop on macOS resets inbound LAN
+      # connections to the privileged :80/:443 on some corporate machines.
+      - containerPort: 80
+        hostPort: 8000
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 8443
         protocol: TCP
       # MongoDB — host :27017 -> NodePort 30017 (svc tak-mongodb-ext, ns mongodb).
       - containerPort: 30017

@@ -64,6 +64,10 @@ OLLAMA_MODEL="${OLLAMA_MODEL:-qwen2.5:7b}"
 # Host ports published by kind — must match infra/k8s/kind-cluster.yaml.
 HOST_MONGO_PORT=27017
 HOST_OM_PORT=8080
+# Non-privileged alias for the Big Peer ingress. Docker Desktop on macOS resets
+# inbound LAN connections to the privileged :80/:443 on some machines, so ATAK
+# devices pair over this port instead. Must match infra/k8s/kind-cluster.yaml.
+BIG_PEER_HOST_PORT=8000
 # Local-only port used to reach the (unauthenticated) Ditto Operator API.
 OPERATOR_API_PORT="${OPERATOR_API_PORT:-18081}"
 
@@ -365,7 +369,7 @@ if [ -n "$EXISTING_KEY" ] && kubectl -n "$NS_DITTO" get bigpeerapikey tak-dashbo
   DITTO_API_KEY="$EXISTING_KEY"
   ok "reusing the existing API key"
 else
-  say "port-forwarding the Operator API on :$OPERATOR_API_PORT…"
+  say "port-forwarding the Operator API on :${OPERATOR_API_PORT}…"
   # The Operator API has NO authentication, so it is never published to the
   # host — a short-lived port-forward keeps it loopback-only.
   kubectl -n "$NS_DITTO" port-forward deployment/ditto-operator "${OPERATOR_API_PORT}:8080" >/dev/null 2>&1 &
@@ -423,8 +427,8 @@ fi
 kubectl -n "$NS_APP" create secret generic tak-ditto \
   --from-literal=DITTO_URL_EP="$DITTO_URL_EP" \
   --from-literal=DITTO_API_KEY="$DITTO_API_KEY" \
-  --from-literal=DITTO_AUTH_URL="http://${BIG_PEER_HOST}" \
-  --from-literal=DITTO_WS_URL="ws://${BIG_PEER_HOST}" \
+  --from-literal=DITTO_AUTH_URL="http://${BIG_PEER_HOST}:${BIG_PEER_HOST_PORT}" \
+  --from-literal=DITTO_WS_URL="ws://${BIG_PEER_HOST}:${BIG_PEER_HOST_PORT}" \
   --from-literal=DITTO_PLAYGROUND_TOKEN="$DITTO_PLAYGROUND_TOKEN" \
   --dry-run=client -o yaml | kubectl apply -f - >/dev/null
 ok "wrote tak-ditto ($NS_APP)"
@@ -436,7 +440,22 @@ if [ "${OLLAMA_SKIP:-0}" = "1" ]; then
 else
   kubectl apply -f infra/k8s/ollama/ollama.yaml >/dev/null
   ollama_ready() { kubectl -n "$NS_APP" get deploy ollama -o jsonpath='{.status.readyReplicas}' 2>/dev/null | grep -q '^1'; }
-  spin_wait "ollama" 300 5 -- ollama_ready || warn "ollama not ready — kubectl -n $NS_APP logs deploy/ollama"
+  # Live status for the spinner: surface the real state (image pull / scheduling
+  # / container creating) so a slow first-run pull is visible, not a bare wait.
+  ollama_status() {
+    local pod phase reason
+    pod="$(kubectl -n "$NS_APP" get pods -l app=ollama -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)"
+    [ -z "$pod" ] && { echo "scheduling"; return 0; }
+    phase="$(kubectl -n "$NS_APP" get pod "$pod" -o jsonpath='{.status.phase}' 2>/dev/null)"
+    reason="$(kubectl -n "$NS_APP" get pod "$pod" -o jsonpath='{.status.containerStatuses[0].state.waiting.reason}' 2>/dev/null)"
+    echo "${reason:-${phase:-starting}}"
+  }
+  # The ollama/ollama image is several GB; on a first run the image pull alone
+  # can exceed 5 min, so allow a generous window (override with
+  # OLLAMA_READY_TIMEOUT). A short wait here used to abort with a misleading
+  # "timed out" while the pull was still in flight.
+  spin_wait "ollama" "${OLLAMA_READY_TIMEOUT:-900}" 5 --status ollama_status -- ollama_ready \
+    || warn "ollama not ready — kubectl -n $NS_APP logs deploy/ollama"
 fi
 
 # ===========================================================================
@@ -498,8 +517,10 @@ if [ "${OLLAMA_SKIP:-0}" = "1" ]; then
 elif ollama_model_present "$NS_APP" "$OLLAMA_MODEL"; then
   ok "$OLLAMA_MODEL already present"
 else
-  ( "$ROOT/scripts/pull-models.sh" ) >/tmp/tak-ollama-pull.log 2>&1 &
-  say "pulling in the background → /tmp/tak-ollama-pull.log (the AI panel 503s until it finishes)"
+  # Blocking pull so setup only finishes once the AI panel is actually usable —
+  # otherwise the first questions 503 until the (multi-GB) pull completes.
+  say "pulling $OLLAMA_MODEL into the cluster (can take several minutes)…"
+  "$ROOT/scripts/pull-models.sh" || warn "model pull failed — run: bash scripts/pull-models.sh"
 fi
 
 # ===========================================================================
@@ -525,8 +546,8 @@ cat <<EOF
 
   ${C_BOLD}4) Pair an ATAK device (Ditto OnlinePlayground)${C_RESET}
      App ID:         ${C_CYAN}${DITTO_APP_ID}${C_RESET}
-     Auth URL:       ${C_CYAN}http://${BIG_PEER_HOST}${C_RESET}
-     Websocket URL:  ${C_CYAN}ws://${BIG_PEER_HOST}${C_RESET}
+     Auth URL:       ${C_CYAN}http://${BIG_PEER_HOST}:${BIG_PEER_HOST_PORT}${C_RESET}
+     Websocket URL:  ${C_CYAN}ws://${BIG_PEER_HOST}:${BIG_PEER_HOST_PORT}${C_RESET}
      Playground token: ${C_CYAN}${DITTO_PLAYGROUND_TOKEN}${C_RESET}
      ${C_GREY}The phone must be on this Wi-Fi. "Add Device" in the dashboard shows the
      same values as a QR code. Cloud sync must be DISABLED in the plugin so it

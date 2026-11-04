@@ -19,12 +19,12 @@ OpenStreetMap basemap tiles.
 
 ### Tools
 
-| Tool                            | Install                                          |
-| ------------------------------- | ------------------------------------------------ |
-| Docker Desktop ≥ 24 (or Engine) | <https://docs.docker.com/get-docker/>            |
-| `kind`                          | `brew install kind` · <https://kind.sigs.k8s.io> |
-| `kubectl`                       | `brew install kubectl`                           |
-| `helm`                          | `brew install helm`                              |
+| Tool                                 | Install                                                                    |
+| ------------------------------------ | -------------------------------------------------------------------------- |
+| Docker Desktop ≥ 24 (or Engine)      | <https://docs.docker.com/get-docker/>                                      |
+| `kind`                               | `brew install kind` · <https://kind.sigs.k8s.io>                           |
+| `kubectl`                            | `brew install kubectl`                                                     |
+| `helm`                               | `brew install helm`                                                        |
 | `openssl`, `curl`, `python3`, `lsof` | ship with macOS; on Linux, `lsof` may need installing (`apt install lsof`) |
 
 ### Hardware
@@ -45,20 +45,25 @@ OpenStreetMap basemap tiles.
 
 kind publishes these, fixed at cluster creation:
 
-| Host port | Goes to              | Used for                                |
-| --------- | -------------------- | --------------------------------------- |
-| 80, 443   | ingress-nginx        | the dashboard, and the Big Peer ingress |
-| 27017     | MongoDB NodePort     | Compass / `mongosh`                     |
-| 8080      | Ops Manager NodePort | Ops Manager web UI                      |
+| Host port  | Goes to              | Used for                                |
+| ---------- | -------------------- | --------------------------------------- |
+| 80, 443    | ingress-nginx        | the dashboard, and the Big Peer ingress |
+| 8000, 8443 | ingress-nginx        | non-privileged alias for ATAK pairing   |
+| 27017      | MongoDB NodePort     | Compass / `mongosh`                     |
+| 8080       | Ops Manager NodePort | Ops Manager web UI                      |
 
-**All four ports must be free** before the cluster is created. kind publishes
-every mapping when it creates the node container, so a conflict on *any* of
+`:8000`/`:8443` serve the _same_ ingress-nginx as `:80`/`:443`. ATAK devices pair
+against the Big Peer over `:8000` because some macOS/Docker setups reset inbound
+LAN connections to the privileged ports — see "Pairing an ATAK device".
+
+**All six ports must be free** before the cluster is created. kind publishes
+every mapping when it creates the node container, so a conflict on _any_ of
 them stops the cluster from starting — not just the one service.
-`preflight.sh` checks all four and stops with the offending process if one is
+`preflight.sh` checks all six and stops with the offending process if one is
 taken. To check by hand:
 
 ```bash
-for p in 80 443 27017 8080; do sudo lsof -iTCP:$p -P -sTCP:LISTEN; done
+for p in 80 443 8000 8443 27017 8080; do sudo lsof -iTCP:$p -P -sTCP:LISTEN; done
 ```
 
 Usual culprits: a local nginx/Apache/Caddy or another container on `:80`, a
@@ -124,10 +129,10 @@ are never rotated on a re-run, so a paired device stays paired.
 | Ditto App             | `BigPeerApp` with a fixed App ID                    | instant        |
 | **MongoDB Connector** | `BigPeerDataBridge` — starts syncing                | ~1–2 min       |
 | Big Peer API key      | Minted via the Operator API, then persisted         | ~15 s          |
-| Ollama                | Deployment + PVC + Service                          | ~60 s          |
+| Ollama                | Deployment + PVC + Service (+ image on first run)   | ~1–6 min       |
 | Docker builds         | Backend + frontend images, loaded into kind         | ~2–4 min       |
 | Helm releases         | Backend + frontend via `mongodb/web-app`            | ~60 s          |
-| Model pull (bg)       | `qwen2.5:7b` → `/tmp/tak-ollama-pull.log`           | ~5–10 min      |
+| Model pull            | `qwen2.5:7b` into the cluster (synchronous)         | ~5–10 min      |
 
 Total: **~25–35 minutes** on a first run; Ops Manager dominates.
 
@@ -144,7 +149,10 @@ connector → HTTP surface → **a live MongoDB → Ditto round-trip** (writes a
 document into MongoDB and reads it back through the Big Peer HTTP API with DQL,
 then cleans up) → the AI panel.
 
-Optional pieces (the Ollama model, attachments) report `WARN`, not failure.
+The AI panel is a required check — `setup.sh` pulls the model synchronously, so
+a missing model is a real failure. Truly optional pieces (ATAK devices,
+attachments) report `WARN`, not failure. Run with `OLLAMA_SKIP=1` to make the AI
+panel optional too.
 
 ### 4. Open the dashboard
 
@@ -195,12 +203,15 @@ on-prem uses, showing the automation agent and deployment topology.
 
 ## Pairing an ATAK device
 
-> ⚠️ **Not yet verified end to end.** The Big Peer, the App and the connector
-> are all confirmed working, and the dashboard produces the identity values. What
-> has **not** been confirmed on a physical device is the exact payload the ATAK
-> Ditto Edge Sync plugin expects from a scanned QR code. Treat the QR as
-> best-effort and the typed values as the dependable path. Please update this
-> section once validated on hardware.
+> **Verified on hardware** (ATAK CIV 5.6 + the Ditto Edge Sync plugin): the
+> device pairs, its PLI reaches MongoDB, and it appears on the map.
+>
+> **The QR must be a PDL (Peer Ditto License), not a plain JSON identity.** The
+> plugin's `IdentityParserV2` expects `urlsafe_base64(zlib(json))` carrying its
+> `TakDittoLicenseV2` fields (`lt/v/o/id/cr/e/t/it/a/ch`, plus `au`/`wu` for the
+> self-hosted URLs). `backend/routers/ditto.py` builds that from the Big Peer
+> values, so **Add Device** serves a QR in the right format. If a scan is ever
+> refused, type the same four values in by hand: identical data.
 
 ### What you need
 
@@ -226,10 +237,14 @@ on-prem uses, showing the automation agent and deployment topology.
 
    ```
    App ID:           7a9f1c4e-2b6d-4f83-9c15-8e0d3a5b7f42
-   Auth URL:         http://ditto.192.168.1.23.nip.io
-   Websocket URL:    ws://ditto.192.168.1.23.nip.io
+   Auth URL:         http://ditto.192.168.1.23.nip.io:8000
+   Websocket URL:    ws://ditto.192.168.1.23.nip.io:8000
    Playground token: <generated>
    ```
+
+   The `:8000` is deliberate — it is the non-privileged alias of the ingress
+   (see "Host ports"). Some macOS/Docker setups reset inbound LAN connections
+   to `:80`/`:443`, which is why pairing targets `:8000`.
 
 3. In ATAK → the **Ditto** plugin → scan the QR, or enter the values manually.
 4. **Disable "sync to Ditto Cloud" in the plugin.** This matters: a Small Peer
@@ -252,12 +267,18 @@ and the pairing values.
 ### If a device can't connect
 
 ```bash
-# Is the Big Peer ingress answering on the LAN address?
-curl -sI "http://$(kubectl -n ditto get ingress -o jsonpath='{.items[0].spec.rules[0].host}')" | head -1
+# Is the Big Peer ingress answering on the LAN address, on the pairing port?
+host="$(kubectl -n ditto get ingress -o jsonpath='{.items[0].spec.rules[0].host}')"
+curl -sI "http://${host}:8000" | head -1
 ```
 
 Then check: phone on the same Wi-Fi (not cellular), client isolation / "guest
 network" off on the router, and the macOS firewall not blocking Docker.
+
+If `:8000` resets but `:8080` answers, the plugin will log
+`Connection reset by peer` and show "Ditto not activated" — see
+`docs/troubleshooting.md` → "A device scans the QR but shows Ditto not
+activated".
 
 ---
 
@@ -343,8 +364,8 @@ collection persists either way; only the binaries are affected.
 
 Docker Desktop on macOS gives containers no Metal/GPU passthrough, so Ollama
 runs on CPU — expect several seconds per answer, and a slow first answer while
-the model loads into memory. The panel hides itself until the model has
-downloaded, and the rest of the dashboard never waits on it.
+the model loads into memory. `setup.sh` pulls the model synchronously, so the
+panel is ready when setup ends; the rest of the dashboard never waits on it.
 
 ### `changeStreamPreAndPostImages` is mandatory
 

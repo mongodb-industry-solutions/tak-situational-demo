@@ -144,6 +144,34 @@ Work outwards from the device:
    kubectl -n ditto logs -l ditto.live/app=tak-situational
    ```
 
+### A device scans the QR but shows "Ditto not activated" (never syncs)
+
+The plugin read the identity but could not authenticate against the Big Peer.
+Its own log is explicit:
+
+```bash
+adb logcat -d | grep -E 'Ditto|TakDittoLicense|IdentityParser' | tail -30
+```
+
+- `identity=OnlinePlayground { app_id: …, base_url: http://ditto.<ip>.nip.io:8000, provider: "__playgroundProvider" }` → the QR was parsed correctly.
+- `get_challenge: … Connection reset by peer` → the host will not accept **inbound LAN connections on that port**.
+
+Docker Desktop on macOS resets inbound LAN connections to _privileged_ published
+ports (`:80`/`:443`) on some machines — even though `lsof` shows `*:80 (LISTEN)`,
+and even with the macOS firewall and Cloudflare WARP ruled out. Non-privileged
+ports (`:8080`, `:8000`, `:27017`) are unaffected. Confirm from the phone:
+
+```bash
+# works (Docker NodePort on a non-privileged port)
+adb shell 'printf "GET / HTTP/1.0\r\nHost: x\r\n\r\n" | toybox nc -w 5 <LAN-IP> 8080' | head -1
+# resets (Docker privileged port)
+adb shell 'printf "GET / HTTP/1.0\r\nHost: x\r\n\r\n" | toybox nc -w 5 <LAN-IP> 80'   | head -1
+```
+
+That is why pairing targets `:8000` — the non-privileged alias of the ingress
+(`infra/k8s/kind-cluster.yaml`). If `make pair` still prints a bare `:80` URL,
+the cluster predates that mapping: `make reset && make setup`.
+
 ### Connector won't start: "must be configured with changeStreamPreAndPostImages enabled"
 
 The connector refuses to run unless every synced collection has pre/post images.
@@ -305,9 +333,12 @@ curl -s http://localhost/api/systemai/status
 
 - `{"enabled": false, ...}` → neither `OLLAMA_BASE_URL` nor `LLM_API_KEY` is set
   (e.g. you ran with `OLLAMA_SKIP=1`).
-- `{"enabled": true, "ready": false}` → the model is still downloading:
+- `{"enabled": true, "ready": false}` → the configured model isn't in Ollama.
+  `setup.sh` pulls it synchronously, so this usually means the pull failed (the
+  `ollama — timed out` case below) or you're pointing at a model that was never
+  pulled:
   ```bash
-  tail -f /tmp/tak-ollama-pull.log
+  bash scripts/pull-models.sh
   kubectl -n tak exec deploy/ollama -- ollama list
   ```
 
@@ -324,6 +355,23 @@ make setup
 `setup.sh` pulls the model and passes it to the backend as `LLM_MODEL`, so
 nothing else needs editing. Note smaller models are noticeably worse at tool calling, which
 this agent depends on entirely.
+
+### `setup.sh` reports `ollama — timed out`
+
+The readiness wait is generous (900 s; override with `OLLAMA_READY_TIMEOUT`), but
+a cold first run also pulls the multi-gigabyte `ollama/ollama` image, which on a
+slow connection can outlast even that. The spinner shows the live pod state
+(`ContainerCreating`, `PodInitializing`, …). Setup carries on regardless, but
+the synchronous model pull at the end needs the pod ready — if it is still
+starting, that pull is skipped with a warning. Check where it actually is:
+
+```bash
+kubectl -n tak get pods -l app=ollama
+kubectl -n tak describe deploy/ollama
+```
+
+Once the image is cached, a re-run of `make setup` brings it up in seconds and
+pulls the model.
 
 ### Ollama pod `CrashLoopBackOff` / OOM
 

@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # Pull the LLM the AI panel uses into the in-cluster Ollama pod.
 #
-# scripts/setup.sh runs this in the background (logging to
-# /tmp/tak-ollama-pull.log) because a 7B model is several GB and there is no
-# reason to block the rest of the bring-up on it. The AI panel returns 503 until
-# the pull completes; everything else — map, node status, chat — works
-# immediately.
+# scripts/setup.sh runs this synchronously as the last step of the bring-up, so
+# the AI panel is usable the moment setup finishes. The model is several GB, so
+# the pull adds a few minutes; everything else — map, node status, chat — is
+# already up and is unaffected.
 #
 # Safe to run by hand at any time, e.g. after `make reset` or to add a model:
 #   OLLAMA_MODEL=llama3.1:8b ./scripts/pull-models.sh
@@ -32,7 +31,7 @@ kubectl -n "$NS_APP" get deploy ollama >/dev/null 2>&1 || \
 kubectl -n "$NS_APP" rollout status deploy/ollama --timeout=300s >/dev/null || \
   die "ollama never became ready — kubectl -n $NS_APP logs deploy/ollama"
 
-# `ollama pull` streams progress; keep it attached so the log file is useful.
+# `ollama pull` streams progress; keep it attached so it is visible live.
 kubectl -n "$NS_APP" exec deploy/ollama -- ollama pull "$OLLAMA_MODEL"
 
 ok "$OLLAMA_MODEL ready"
